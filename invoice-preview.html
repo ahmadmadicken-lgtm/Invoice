@@ -141,6 +141,21 @@
   </button>
 </div>
 
+<!-- Modal konfirmasi hapus -->
+<div id="deleteModal" class="hidden fixed inset-0 bg-ink/50 z-50 flex items-center justify-center px-5">
+  <div class="bg-panel rounded-2xl shadow-xl max-w-sm w-full p-6">
+    <div class="w-11 h-11 rounded-full bg-red-50 flex items-center justify-center mb-4">
+      <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#B91C1C" stroke-width="2"><path d="M3 6h18M8 6V4a2 2 0 012-2h4a2 2 0 012 2v2m3 0v14a2 2 0 01-2 2H7a2 2 0 01-2-2V6h14z"/></svg>
+    </div>
+    <h3 class="font-display font-700 text-base text-ink mb-1.5">Hapus invoice ini?</h3>
+    <p class="text-sm text-slate leading-relaxed mb-6">Invoice <span id="deleteModalInvoiceNo" class="font-medium text-ink"></span> akan dihapus permanen dan tidak bisa dikembalikan.</p>
+    <div class="flex gap-3">
+      <button id="deleteModalCancel" class="flex-1 py-2.5 rounded-xl border border-slate-200 text-ink text-sm font-semibold hover:bg-slate-50 transition">Batal</button>
+      <button id="deleteModalConfirm" class="flex-1 py-2.5 rounded-xl bg-red-600 text-white text-sm font-semibold hover:bg-red-700 transition">Ya, Hapus</button>
+    </div>
+  </div>
+</div>
+
 <script>
 (function(){
   const SUPABASE_URL = 'https://qnathomwpcovmvzowfou.supabase.co';
@@ -522,20 +537,6 @@
     });
   }
 </script>
-<!-- Modal konfirmasi hapus -->
-<div id="deleteModal" class="hidden fixed inset-0 bg-ink/50 z-50 flex items-center justify-center px-5">
-  <div class="bg-panel rounded-2xl shadow-xl max-w-sm w-full p-6">
-    <div class="w-11 h-11 rounded-full bg-red-50 flex items-center justify-center mb-4">
-      <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#B91C1C" stroke-width="2"><path d="M3 6h18M8 6V4a2 2 0 012-2h4a2 2 0 012 2v2m3 0v14a2 2 0 01-2 2H7a2 2 0 01-2-2V6h14z"/></svg>
-    </div>
-    <h3 class="font-display font-700 text-base text-ink mb-1.5">Hapus invoice ini?</h3>
-    <p class="text-sm text-slate leading-relaxed mb-6">Invoice <span id="deleteModalInvoiceNo" class="font-medium text-ink"></span> akan dihapus permanen dan tidak bisa dikembalikan.</p>
-    <div class="flex gap-3">
-      <button id="deleteModalCancel" class="flex-1 py-2.5 rounded-xl border border-slate-200 text-ink text-sm font-semibold hover:bg-slate-50 transition">Batal</button>
-      <button id="deleteModalConfirm" class="flex-1 py-2.5 rounded-xl bg-red-600 text-white text-sm font-semibold hover:bg-red-700 transition">Ya, Hapus</button>
-    </div>
-  </div>
-</div>
 
 </body>
 </html>
