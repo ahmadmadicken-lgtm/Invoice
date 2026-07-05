@@ -5,7 +5,7 @@
 // jangan sampai user lihat data invoice yang basi/ketinggalan.
 // ============================================
 
-const CACHE_NAME = 'genset-invoice-v2';
+const CACHE_NAME = 'genset-invoice-v3';
 
 // File statis yang aman di-cache (tidak berubah tiap request)
 const APP_SHELL = [

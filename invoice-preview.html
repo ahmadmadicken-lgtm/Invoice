@@ -29,6 +29,14 @@
   body { font-family:'Inter',sans-serif; background:#F0F1F3; }
   .font-display { font-family:'Manrope',sans-serif; }
   .tnum { font-variant-numeric: tabular-nums; }
+
+  /* Saat print/Save as PDF: sembunyikan semua UI kecuali dokumen invoice itu sendiri */
+  @media print {
+    header, #mobileActionBar, #loadingState, #notFoundState { display: none !important; }
+    body { background: white !important; }
+    #invoiceDocument { box-shadow: none !important; border-radius: 0 !important; margin: 0 !important; }
+    .max-w-3xl { max-width: 100% !important; padding: 0 !important; margin: 0 !important; }
+  }
 </style>
 <link rel="manifest" href="./manifest.json">
 <meta name="theme-color" content="#C7791F">
@@ -45,7 +53,7 @@
 <header class="sticky top-0 z-20 bg-panel/95 backdrop-blur border-b border-slate-200">
   <div class="flex items-center justify-between px-5 md:px-10 py-4 max-w-3xl mx-auto">
     <div class="flex items-center gap-3">
-      <button class="w-8 h-8 rounded-full hover:bg-slate-50 flex items-center justify-center text-slate">
+      <button onclick="window.history.back()" class="w-8 h-8 rounded-full hover:bg-slate-50 flex items-center justify-center text-slate">
         <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M19 12H5M12 19l-7-7 7-7"/></svg>
       </button>
       <div>
