@@ -59,7 +59,7 @@
           <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M19 12H5M12 19l-7-7 7-7"/></svg>
         </button>
         <div>
-          <h1 class="font-display text-base font-700 text-ink">Invoice Servis Baru</h1>
+          <h1 id="pageTitle" class="font-display text-base font-700 text-ink">Invoice Servis Baru</h1>
           <p id="saveStatus" class="text-xs text-slate flex items-center gap-1.5 mt-0.5">
             <span class="w-1.5 h-1.5 rounded-full bg-green-500"></span> Tersimpan otomatis
           </p>
@@ -80,7 +80,7 @@
           <input id="tanggal" type="date" class="mt-1.5 w-full px-4 py-2.5 rounded-xl border border-slate-200 text-sm focus:outline-none focus:ring-2 focus:ring-power/40 focus:border-power">
         </div>
         <div>
-          <label class="text-xs font-semibold text-slate uppercase tracking-wide">Jatuh Tempo</label>
+            <label id="jatuhTempoLabel" class="text-xs font-semibold text-slate uppercase tracking-wide">Jatuh Tempo</label>
           <input id="jatuhTempo" type="date" class="mt-1.5 w-full px-4 py-2.5 rounded-xl border border-slate-200 text-sm focus:outline-none focus:ring-2 focus:ring-power/40 focus:border-power">
         </div>
       </div>
@@ -270,12 +270,20 @@
   const APP_ID = 'bengkel-genset-andi'; // ID tetap — sama di semua device, tanpa login
   const supabase = window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
 
-  // Nomor invoice: kalau ada di URL (?edit=INV-0032) berarti buka invoice lama untuk diedit.
-  // Kalau tidak ada, ini invoice baru — nomor akan digenerate sekali dari counter di business_settings.
+  // Nomor invoice: kalau ada di URL (?edit=INV-0032) berarti buka dokumen lama untuk diedit.
+  // Kalau tidak ada, ini dokumen baru — nomor akan digenerate dari nomor tertinggi yang ada + 1.
   const urlParams = new URLSearchParams(window.location.search);
-  let INVOICE_NO = urlParams.get('edit'); // null kalau invoice baru
+  let INVOICE_NO = urlParams.get('edit'); // null kalau dokumen baru
+  const DOC_TYPE = urlParams.get('type') === 'quotation' ? 'quotation' : 'invoice'; // default invoice
   let STORAGE_KEY = null; // diisi setelah INVOICE_NO diketahui
   const rupiah = n => 'Rp ' + (Number(n)||0).toLocaleString('id-ID');
+
+  // Sesuaikan teks UI tergantung jenis dokumen — dilakukan sekali di awal
+  if (DOC_TYPE === 'quotation') {
+    document.getElementById('pageTitle').textContent = 'Penawaran Servis Baru';
+    document.getElementById('jatuhTempoLabel').textContent = 'Berlaku Hingga';
+    document.title = document.title.replace('Buat Invoice', 'Buat Penawaran');
+  }
 
   async function ensureInvoiceNumber() {
     if (INVOICE_NO) {
@@ -284,34 +292,44 @@
     }
 
     try {
-      // Ambil & kunci nomor berikutnya dari business_settings
-      let { data: settings, error } = await supabase
+      // Ambil prefix yang sesuai jenis dokumen dari business_settings
+      const prefixColumn = DOC_TYPE === 'quotation' ? 'quotation_prefix' : 'invoice_prefix';
+      let { data: settings } = await supabase
         .from('business_settings')
-        .select('next_invoice_number, invoice_prefix')
+        .select(prefixColumn)
         .eq('access_code', APP_ID)
         .maybeSingle();
 
-      if (error) throw error;
-
-      // Kalau belum ada baris settings sama sekali, buat default dulu
       if (!settings) {
+        const defaults = { access_code: APP_ID, invoice_prefix: 'INV-', quotation_prefix: 'QUO-' };
         const { data: created } = await supabase
           .from('business_settings')
-          .insert({ access_code: APP_ID, next_invoice_number: 1, invoice_prefix: 'INV-' })
-          .select('next_invoice_number, invoice_prefix')
+          .insert(defaults)
+          .select(prefixColumn)
           .single();
         settings = created;
       }
+      const prefix = settings[prefixColumn] || (DOC_TYPE === 'quotation' ? 'QUO-' : 'INV-');
 
-      const nextNum = settings.next_invoice_number || 1;
-      const prefix = settings.invoice_prefix || 'INV-';
-      INVOICE_NO = prefix + String(nextNum).padStart(4, '0');
+      // Cari nomor tertinggi yang BENAR-BENAR ada saat ini, lalu +1.
+      // Ini sengaja tidak pakai counter statis — supaya kalau invoice dengan
+      // nomor tertinggi dihapus, nomor itu otomatis terpakai lagi berikutnya.
+      const { data: existing, error } = await supabase
+        .from('invoices')
+        .select('invoice_no')
+        .eq('access_code', APP_ID)
+        .like('invoice_no', `${prefix}%`);
 
-      // Naikkan counter untuk invoice berikutnya
-      await supabase
-        .from('business_settings')
-        .update({ next_invoice_number: nextNum + 1 })
-        .eq('access_code', APP_ID);
+      if (error) throw error;
+
+      let maxNum = 0;
+      (existing || []).forEach(row => {
+        const suffix = row.invoice_no.slice(prefix.length);
+        const n = parseInt(suffix, 10);
+        if (!isNaN(n) && n > maxNum) maxNum = n;
+      });
+
+      INVOICE_NO = prefix + String(maxNum + 1).padStart(4, '0');
 
     } catch (err) {
       console.warn('Gagal generate nomor invoice dari server, pakai nomor sementara:', err.message);
@@ -483,6 +501,7 @@
       const { error } = await supabase.from('invoices').upsert({
         access_code: APP_ID,
         invoice_no: INVOICE_NO,
+        doc_type: DOC_TYPE,
         status: 'draft',
         tanggal: state.tanggal || null,
         jatuh_tempo: state.jatuhTempo || null,
@@ -541,6 +560,13 @@
         .maybeSingle();
       if (error) throw error;
       if (data) {
+        // Sinkronkan label UI dengan doc_type asli data (kalau beda dari tebakan awal URL)
+        if (data.doc_type === 'quotation') {
+          document.getElementById('pageTitle').textContent = 'Edit Penawaran';
+          document.getElementById('jatuhTempoLabel').textContent = 'Berlaku Hingga';
+        } else {
+          document.getElementById('pageTitle').textContent = 'Edit Invoice';
+        }
         saved = {
           tanggal: data.tanggal, jatuhTempo: data.jatuh_tempo,
           customerNama: data.customer_nama, customerHp: data.customer_hp, jenisServis: data.jenis_servis,

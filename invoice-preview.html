@@ -75,9 +75,17 @@
         Print
       </button>
       <div class="w-px h-6 bg-slate-200 mx-1"></div>
+      <button id="convertBtnDesktop" class="hidden px-4 py-2.5 rounded-lg bg-power text-white text-sm font-semibold hover:bg-power-600 transition items-center gap-2 shadow-sm">
+        <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M20 6L9 17l-5-5"/></svg>
+        Setujui &amp; Jadikan Invoice
+      </button>
       <button id="waBtnDesktop" class="px-5 py-2.5 rounded-lg bg-wa text-white text-sm font-semibold hover:bg-wa-600 transition flex items-center gap-2 shadow-sm">
         <svg width="16" height="16" viewBox="0 0 24 24" fill="white"><path d="M12.04 2C6.58 2 2.13 6.45 2.13 11.91c0 1.75.46 3.44 1.34 4.93L2 22l5.31-1.39a9.9 9.9 0 004.73 1.2h.01c5.46 0 9.9-4.45 9.9-9.91C21.96 6.45 17.5 2 12.04 2z"/></svg>
         Kirim WhatsApp
+      </button>
+      <div class="w-px h-6 bg-slate-200 mx-1"></div>
+      <button id="deleteBtnDesktop" title="Hapus invoice" class="w-9 h-9 rounded-lg text-slate hover:bg-red-50 hover:text-red-600 flex items-center justify-center transition">
+        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M3 6h18M8 6V4a2 2 0 012-2h4a2 2 0 012 2v2m3 0v14a2 2 0 01-2 2H7a2 2 0 01-2-2V6h14z"/></svg>
       </button>
     </div>
   </div>
@@ -119,7 +127,14 @@
       <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 15v4a2 2 0 01-2 2H5a2 2 0 01-2-2v-4M7 10l5 5 5-5M12 15V3"/></svg>
       Download
     </button>
+    <button id="deleteBtnMobile" title="Hapus invoice" class="w-10 py-2.5 rounded-xl border border-slate-200 text-slate flex items-center justify-center shrink-0">
+      <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M3 6h18M8 6V4a2 2 0 012-2h4a2 2 0 012 2v2m3 0v14a2 2 0 01-2 2H7a2 2 0 01-2-2V6h14z"/></svg>
+    </button>
   </div>
+  <button id="convertBtnMobile" class="hidden w-full mb-2 py-3 rounded-xl bg-power text-white text-sm font-bold shadow-sm active:scale-[0.99] transition items-center justify-center gap-2">
+    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="white" stroke-width="2.5"><path d="M20 6L9 17l-5-5"/></svg>
+    Setujui &amp; Jadikan Invoice
+  </button>
   <button id="waBtnMobile" class="w-full py-3.5 rounded-xl bg-wa text-white text-sm font-bold shadow-sm active:scale-[0.99] transition flex items-center justify-center gap-2">
     <svg width="18" height="18" viewBox="0 0 24 24" fill="white"><path d="M12.04 2C6.58 2 2.13 6.45 2.13 11.91c0 1.75.46 3.44 1.34 4.93L2 22l5.31-1.39a9.9 9.9 0 004.73 1.2h.01c5.46 0 9.9-4.45 9.9-9.91C21.96 6.45 17.5 2 12.04 2z"/></svg>
     Kirim via WhatsApp
@@ -162,13 +177,25 @@
     overdue: { label: 'Telat Bayar', bg: 'bg-red-50 border-red-100', dot: 'bg-red-600', text: 'text-red-700' }
   };
 
+  // Status khusus untuk quotation — beda bahasa & makna dari status invoice
+  const statusBadgeQuotation = {
+    draft:     { label: 'Belum Terkirim', bg: 'bg-blue-50 border-blue-100', dot: 'bg-blue-600', text: 'text-blue-700' },
+    sent:      { label: 'Menunggu Persetujuan', bg: 'bg-amber-50 border-amber-100', dot: 'bg-amber-600', text: 'text-amber-700' },
+    approved:  { label: 'Disetujui', bg: 'bg-green-50 border-green-100', dot: 'bg-green-600', text: 'text-green-700' },
+    rejected:  { label: 'Ditolak', bg: 'bg-red-50 border-red-100', dot: 'bg-red-600', text: 'text-red-700' },
+    expired:   { label: 'Kadaluarsa', bg: 'bg-slate-100 border-slate-200', dot: 'bg-slate-400', text: 'text-slate' },
+    converted: { label: 'Sudah Jadi Invoice', bg: 'bg-power-50 border-power-100', dot: 'bg-power', text: 'text-power-700' }
+  };
+
   const params = new URLSearchParams(window.location.search);
   const invoiceId = params.get('id');
   let currentInvoice = null;
 
   function renderDocument(inv, biz) {
     currentInvoice = inv;
-    const badge = statusBadge[inv.status] || statusBadge.draft;
+    const isQuotation = inv.doc_type === 'quotation';
+    const badgeSet = isQuotation ? statusBadgeQuotation : statusBadge;
+    const badge = badgeSet[inv.status] || badgeSet.draft;
     const spareparts = inv.spareparts || [];
 
     const namaUsaha = biz.nama_usaha || 'Nama Usaha Belum Diisi';
@@ -206,7 +233,7 @@
 
         <!-- Judul INVOICE dalam bar tersendiri -->
         <div class="border-b-2 border-power-700 py-1.5 text-center">
-          <p class="font-display font-800 text-sm tracking-[0.2em] text-ink">INVOICE</p>
+          <p class="font-display font-800 text-sm tracking-[0.2em] text-ink">${isQuotation ? 'SURAT PENAWARAN HARGA' : 'INVOICE'}</p>
         </div>
 
         <!-- Customer block (kiri) + Info block (kanan) -->
@@ -220,7 +247,7 @@
             <table class="w-full leading-snug">
               <tr><td class="text-slate w-16 py-0.5 align-top">Nomor</td><td class="text-slate py-0.5 align-top w-2">:</td><td class="text-ink font-medium py-0.5">${inv.invoice_no}</td></tr>
               <tr><td class="text-slate py-0.5 align-top">Tanggal</td><td class="text-slate py-0.5 align-top">:</td><td class="text-ink font-medium tnum py-0.5">${tglFmt(inv.tanggal)}</td></tr>
-              <tr><td class="text-slate py-0.5 align-top">JT Tempo</td><td class="text-slate py-0.5 align-top">:</td><td class="text-ink font-medium tnum py-0.5">${tglFmt(inv.jatuh_tempo)}</td></tr>
+              <tr><td class="text-slate py-0.5 align-top">${isQuotation ? 'Berlaku s/d' : 'JT Tempo'}</td><td class="text-slate py-0.5 align-top">:</td><td class="text-ink font-medium tnum py-0.5">${tglFmt(inv.jatuh_tempo)}</td></tr>
             </table>
           </div>
         </div>
@@ -277,7 +304,7 @@
           <table class="text-[13px] w-60">
             <tr class="border-b border-power-100"><td class="px-3 py-1.5 text-slate">Total</td><td class="px-3 py-1.5 text-right tnum text-ink font-medium">${rupiahPlain(inv.subtotal)}</td></tr>
             ${potonganHarga > 0 ? `<tr class="border-b border-power-100"><td class="px-3 py-1.5 text-slate">Diskon</td><td class="px-3 py-1.5 text-right tnum text-ink">- ${rupiahPlain(potonganHarga)}</td></tr>` : ''}
-            <tr class="bg-power-50"><td class="px-3 py-2 font-bold text-power-700 text-sm">Grand Total</td><td class="px-3 py-2 text-right tnum font-bold text-power-700 text-sm">${rupiahPlain(inv.total)}</td></tr>
+            <tr class="bg-power-50"><td class="px-3 py-2 font-bold text-power-700 text-sm">${isQuotation ? 'Estimasi Biaya' : 'Grand Total'}</td><td class="px-3 py-2 text-right tnum font-bold text-power-700 text-sm">${rupiahPlain(inv.total)}</td></tr>
           </table>
         </div>
       </div>
@@ -288,7 +315,7 @@
       <!-- Note / Pembayaran -->
       <div class="mt-3.5 text-[13px] text-slate leading-relaxed flex justify-between gap-6">
         <div class="flex-1">
-          <p class="font-semibold text-ink mb-1">Note :</p>
+          <p class="font-semibold text-ink mb-1">${isQuotation ? 'Syarat &amp; Ketentuan :' : 'Note :'}</p>
           ${inv.catatan || biz.catatan_default ? `<p class="mb-1">${inv.catatan || biz.catatan_default}</p>` : ''}
           ${inv.dp_jumlah > 0 ? `<p>Pembayaran DP ${rupiahPlain(inv.dp_jumlah)} saat konfirmasi order, pelunasan setelah pekerjaan selesai</p>` : ''}
           ${biz.bank_nama || biz.bank_no_rekening ? `
@@ -315,10 +342,20 @@
     document.getElementById('loadingState').classList.add('hidden');
     document.getElementById('invoiceDocument').classList.remove('hidden');
     document.getElementById('mobileActionBar').classList.remove('hidden');
+
+    // Tombol konversi cuma muncul untuk quotation yang belum pernah dikonversi
+    if (isQuotation && inv.status !== 'converted') {
+      document.getElementById('convertBtnDesktop').classList.remove('hidden');
+      document.getElementById('convertBtnDesktop').classList.add('flex');
+      document.getElementById('convertBtnMobile').classList.remove('hidden');
+      document.getElementById('convertBtnMobile').classList.add('flex');
+    }
   }
 
   function buildWaMessage(inv) {
-    const msg = `Halo Pak/Bu ${inv.customer_nama || ''}, berikut invoice servis genset ${inv.invoice_no} sebesar ${rupiah(inv.total)}, jatuh tempo ${tglFmt(inv.jatuh_tempo)}. Terima kasih.`;
+    const msg = inv.doc_type === 'quotation'
+      ? `Halo Pak/Bu ${inv.customer_nama || ''}, berikut penawaran harga servis genset ${inv.invoice_no} sebesar ${rupiah(inv.total)}, berlaku hingga ${tglFmt(inv.jatuh_tempo)}. Mohon dikonfirmasi ya. Terima kasih.`
+      : `Halo Pak/Bu ${inv.customer_nama || ''}, berikut invoice servis genset ${inv.invoice_no} sebesar ${rupiah(inv.total)}, jatuh tempo ${tglFmt(inv.jatuh_tempo)}. Terima kasih.`;
     return `https://wa.me/?text=${encodeURIComponent(msg)}`;
   }
 
@@ -334,6 +371,122 @@
 
   document.getElementById('waBtnDesktop').addEventListener('click', sendWhatsApp);
   document.getElementById('waBtnMobile').addEventListener('click', sendWhatsApp);
+
+  // ============================================
+  // Konversi Quotation → Invoice
+  // ============================================
+  async function convertToInvoice() {
+    if (!currentInvoice) return;
+    const btns = [document.getElementById('convertBtnDesktop'), document.getElementById('convertBtnMobile')];
+    btns.forEach(b => { b.disabled = true; b.style.opacity = '0.6'; });
+
+    try {
+      // Tentukan nomor invoice baru: cari nomor INV- tertinggi yang ada, +1
+      const { data: settings } = await supabase
+        .from('business_settings')
+        .select('invoice_prefix')
+        .eq('access_code', APP_ID)
+        .maybeSingle();
+      const invPrefix = settings?.invoice_prefix || 'INV-';
+
+      const { data: existing } = await supabase
+        .from('invoices')
+        .select('invoice_no')
+        .eq('access_code', APP_ID)
+        .eq('doc_type', 'invoice')
+        .like('invoice_no', `${invPrefix}%`);
+
+      let maxNum = 0;
+      (existing || []).forEach(row => {
+        const n = parseInt(row.invoice_no.slice(invPrefix.length), 10);
+        if (!isNaN(n) && n > maxNum) maxNum = n;
+      });
+      const newInvoiceNo = invPrefix + String(maxNum + 1).padStart(4, '0');
+
+      // Salin semua data quotation ini jadi invoice baru
+      const { data: newInvoice, error } = await supabase
+        .from('invoices')
+        .insert({
+          access_code: APP_ID,
+          invoice_no: newInvoiceNo,
+          doc_type: 'invoice',
+          status: 'draft',
+          tanggal: new Date().toISOString().slice(0, 10),
+          jatuh_tempo: currentInvoice.jatuh_tempo,
+          customer_nama: currentInvoice.customer_nama,
+          customer_hp: currentInvoice.customer_hp,
+          jenis_servis: currentInvoice.jenis_servis,
+          unit_genset: currentInvoice.unit_genset,
+          deskripsi: currentInvoice.deskripsi,
+          lokasi: currentInvoice.lokasi,
+          jasa_desc: currentInvoice.jasa_desc,
+          jasa_harga: currentInvoice.jasa_harga,
+          spareparts: currentInvoice.spareparts,
+          dp_jumlah: currentInvoice.dp_jumlah,
+          potongan_tipe: currentInvoice.potongan_tipe,
+          potongan_nilai: currentInvoice.potongan_nilai,
+          potongan_harga: currentInvoice.potongan_harga,
+          catatan: currentInvoice.catatan,
+          subtotal: currentInvoice.subtotal,
+          total: currentInvoice.total
+        })
+        .select('id')
+        .single();
+
+      if (error) throw error;
+
+      // Tandai quotation ini sebagai sudah dikonversi
+      await supabase.from('invoices')
+        .update({ status: 'converted', converted_to: newInvoiceNo })
+        .eq('id', currentInvoice.id);
+
+      // Langsung buka invoice baru yang dihasilkan
+      window.location.href = `invoice-preview.html?id=${newInvoice.id}`;
+
+    } catch (err) {
+      console.error(err);
+      alert('Gagal mengonversi ke invoice. Coba lagi.');
+      btns.forEach(b => { b.disabled = false; b.style.opacity = '1'; });
+    }
+  }
+
+  document.getElementById('convertBtnDesktop').addEventListener('click', convertToInvoice);
+  document.getElementById('convertBtnMobile').addEventListener('click', convertToInvoice);
+
+  // ============================================
+  // Hapus invoice — dengan modal konfirmasi
+  // ============================================
+  function openDeleteModal() {
+    if (!currentInvoice) return;
+    document.getElementById('deleteModalInvoiceNo').textContent = currentInvoice.invoice_no;
+    document.getElementById('deleteModal').classList.remove('hidden');
+  }
+  function closeDeleteModal() {
+    document.getElementById('deleteModal').classList.add('hidden');
+  }
+
+  document.getElementById('deleteBtnDesktop').addEventListener('click', openDeleteModal);
+  document.getElementById('deleteBtnMobile').addEventListener('click', openDeleteModal);
+  document.getElementById('deleteModalCancel').addEventListener('click', closeDeleteModal);
+
+  document.getElementById('deleteModalConfirm').addEventListener('click', async () => {
+    if (!currentInvoice) return;
+    const btn = document.getElementById('deleteModalConfirm');
+    btn.textContent = 'Menghapus...';
+    btn.disabled = true;
+
+    const { error } = await supabase.from('invoices').delete().eq('id', currentInvoice.id).eq('access_code', APP_ID);
+
+    if (error) {
+      console.error(error);
+      btn.textContent = 'Ya, Hapus';
+      btn.disabled = false;
+      alert('Gagal menghapus invoice. Coba lagi.');
+      return;
+    }
+
+    window.location.href = 'invoice-history.html';
+  });
 
   async function load() {
     if (!invoiceId) {
@@ -369,5 +522,20 @@
     });
   }
 </script>
+<!-- Modal konfirmasi hapus -->
+<div id="deleteModal" class="hidden fixed inset-0 bg-ink/50 z-50 flex items-center justify-center px-5">
+  <div class="bg-panel rounded-2xl shadow-xl max-w-sm w-full p-6">
+    <div class="w-11 h-11 rounded-full bg-red-50 flex items-center justify-center mb-4">
+      <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#B91C1C" stroke-width="2"><path d="M3 6h18M8 6V4a2 2 0 012-2h4a2 2 0 012 2v2m3 0v14a2 2 0 01-2 2H7a2 2 0 01-2-2V6h14z"/></svg>
+    </div>
+    <h3 class="font-display font-700 text-base text-ink mb-1.5">Hapus invoice ini?</h3>
+    <p class="text-sm text-slate leading-relaxed mb-6">Invoice <span id="deleteModalInvoiceNo" class="font-medium text-ink"></span> akan dihapus permanen dan tidak bisa dikembalikan.</p>
+    <div class="flex gap-3">
+      <button id="deleteModalCancel" class="flex-1 py-2.5 rounded-xl border border-slate-200 text-ink text-sm font-semibold hover:bg-slate-50 transition">Batal</button>
+      <button id="deleteModalConfirm" class="flex-1 py-2.5 rounded-xl bg-red-600 text-white text-sm font-semibold hover:bg-red-700 transition">Ya, Hapus</button>
+    </div>
+  </div>
+</div>
+
 </body>
 </html>
