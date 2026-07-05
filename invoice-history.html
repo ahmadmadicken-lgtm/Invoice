@@ -67,9 +67,26 @@
 
     <div class="px-5 md:px-10 py-7 md:py-10 pb-28 md:pb-10 max-w-4xl mx-auto space-y-6">
 
+      <!-- Toggle jenis dokumen -->
+      <div class="flex items-center justify-between gap-4 flex-wrap">
+        <div class="flex gap-1 p-1 bg-slate-100 rounded-xl w-fit">
+          <button data-doctype="invoice" id="typeTabInvoice" class="type-tab px-4 py-2 rounded-lg text-sm font-semibold bg-ink text-white transition">Invoice</button>
+          <button data-doctype="quotation" id="typeTabQuotation" class="type-tab px-4 py-2 rounded-lg text-sm font-semibold text-slate transition">Quotation</button>
+        </div>
+        <a id="createBtn" href="invoice-editor-functional.html" class="hidden md:inline-flex px-4 py-2.5 rounded-xl bg-power text-white text-sm font-semibold shadow-sm hover:bg-power-600 transition items-center gap-2">
+          <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M12 5v14M5 12h14"/></svg>
+          <span id="createBtnLabel">Buat Invoice</span>
+        </a>
+      </div>
+
+      <a id="createBtnMobile" href="invoice-editor-functional.html" class="md:hidden flex px-4 py-2.5 rounded-xl bg-power text-white text-sm font-semibold shadow-sm items-center justify-center gap-2">
+        <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M12 5v14M5 12h14"/></svg>
+        <span id="createBtnLabelMobile">Buat Invoice</span>
+      </a>
+
       <div class="hidden md:block">
-        <h1 class="font-display text-2xl font-800 text-ink">Riwayat Invoice</h1>
-        <p class="text-slate text-sm mt-1">17 invoice total</p>
+        <h1 id="pageTitle" class="font-display text-2xl font-800 text-ink">Riwayat Invoice</h1>
+        <p id="pageSubtitle" class="text-slate text-sm mt-1">0 invoice total</p>
       </div>
 
       <!-- Search -->
@@ -78,14 +95,8 @@
         <input id="searchInput" type="text" placeholder="Cari nama customer atau no. invoice..." class="w-full pl-11 pr-4 py-3 rounded-xl border border-slate-200 bg-panel text-sm focus:outline-none focus:ring-2 focus:ring-power/40 focus:border-power">
       </div>
 
-      <!-- Filter chips — state always visible, 1 tap to switch -->
-      <div id="filterChips" class="flex gap-2 overflow-x-auto pb-1 -mx-5 px-5 md:mx-0 md:px-0">
-        <button data-filter="semua" class="chip active shrink-0 px-4 py-2 rounded-full bg-ink text-white text-xs font-semibold">Semua <span class="opacity-60" id="countSemua">0</span></button>
-        <button data-filter="draft" class="chip shrink-0 px-4 py-2 rounded-full bg-panel border border-slate-200 text-slate text-xs font-semibold hover:border-slate-300">Draft <span class="opacity-60" id="countDraft">0</span></button>
-        <button data-filter="sent" class="chip shrink-0 px-4 py-2 rounded-full bg-panel border border-slate-200 text-slate text-xs font-semibold hover:border-slate-300">Terkirim <span class="opacity-60" id="countSent">0</span></button>
-        <button data-filter="paid" class="chip shrink-0 px-4 py-2 rounded-full bg-panel border border-slate-200 text-slate text-xs font-semibold hover:border-slate-300">Lunas <span class="opacity-60" id="countPaid">0</span></button>
-        <button data-filter="overdue" class="chip shrink-0 px-4 py-2 rounded-full bg-red-50 border border-red-200 text-red-700 text-xs font-semibold" id="chipOverdue">Telat Bayar <span class="opacity-70" id="countOverdue">0</span></button>
-      </div>
+      <!-- Filter chips — isinya diganti dinamis lewat JS tergantung jenis dokumen aktif -->
+      <div id="filterChips" class="flex gap-2 overflow-x-auto pb-1 -mx-5 px-5 md:mx-0 md:px-0"></div>
 
       <!-- Dynamic list -->
       <div id="listContainer" class="space-y-6">
@@ -103,11 +114,11 @@
           <div class="w-14 h-14 rounded-2xl bg-power-50 flex items-center justify-center mx-auto mb-4">
             <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="#C7791F" stroke-width="2"><path d="M14 2H6a2 2 0 00-2 2v16a2 2 0 002 2h12a2 2 0 002-2V8z"/><path d="M14 2v6h6"/></svg>
           </div>
-          <p class="text-sm font-semibold text-ink">Belum ada invoice</p>
-          <p class="text-xs text-slate mt-1 mb-4">Invoice yang kamu buat akan muncul di sini.</p>
-          <a href="invoice-editor-functional.html" class="inline-flex items-center gap-1.5 px-4 py-2.5 rounded-xl bg-power text-white text-sm font-semibold">
+          <p id="emptyStateTitle" class="text-sm font-semibold text-ink">Belum ada invoice</p>
+          <p id="emptyStateDesc" class="text-xs text-slate mt-1 mb-4">Invoice yang kamu buat akan muncul di sini.</p>
+          <a id="emptyStateBtn" href="invoice-editor-functional.html" class="inline-flex items-center gap-1.5 px-4 py-2.5 rounded-xl bg-power text-white text-sm font-semibold">
             <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M12 5v14M5 12h14"/></svg>
-            Buat Invoice Pertama
+            <span id="emptyStateBtnLabel">Buat Invoice Pertama</span>
           </a>
         </div>
 
@@ -170,15 +181,107 @@
     overdue: { label: 'Telat Bayar', dot: 'bg-status-overdue', text: 'text-status-overdue' }
   };
 
+  const statusMetaQuotation = {
+    draft:     { label: 'Draft',                dot: 'bg-status-draft', text: 'text-slate' },
+    sent:      { label: 'Menunggu Persetujuan',  dot: 'bg-amber-500',    text: 'text-amber-700' },
+    approved:  { label: 'Disetujui',             dot: 'bg-status-paid',  text: 'text-green-700' },
+    rejected:  { label: 'Ditolak',               dot: 'bg-status-overdue', text: 'text-status-overdue' },
+    expired:   { label: 'Kadaluarsa',            dot: 'bg-slate-400',    text: 'text-slate' },
+    converted: { label: 'Sudah Jadi Invoice',    dot: 'bg-power',        text: 'text-power-700' }
+  };
+
+  // Definisi filter chip per jenis dokumen — beda status, beda makna
+  const filterDefsInvoice = [
+    { key: 'semua', label: 'Semua', style: 'dark' },
+    { key: 'draft', label: 'Draft', style: 'neutral' },
+    { key: 'sent', label: 'Terkirim', style: 'neutral' },
+    { key: 'paid', label: 'Lunas', style: 'neutral' },
+    { key: 'overdue', label: 'Telat Bayar', style: 'danger' }
+  ];
+  const filterDefsQuotation = [
+    { key: 'semua', label: 'Semua', style: 'dark' },
+    { key: 'draft', label: 'Draft', style: 'neutral' },
+    { key: 'sent', label: 'Menunggu', style: 'warning' },
+    { key: 'approved', label: 'Disetujui', style: 'neutral' },
+    { key: 'rejected', label: 'Ditolak', style: 'danger' },
+    { key: 'expired', label: 'Kadaluarsa', style: 'neutral' }
+  ];
+
   let allInvoices = [];
   let currentFilter = 'semua';
   let currentSearch = '';
+  let currentDocType = 'invoice';
+
+  function chipClasses(style, active) {
+    if (active) {
+      if (style === 'danger') return 'bg-red-600 text-white';
+      return 'bg-ink text-white';
+    }
+    if (style === 'danger') return 'bg-red-50 border border-red-200 text-red-700';
+    if (style === 'warning') return 'bg-amber-50 border border-amber-200 text-amber-700';
+    return 'bg-panel border border-slate-200 text-slate hover:border-slate-300';
+  }
+
+  function renderFilterChips() {
+    const defs = currentDocType === 'quotation' ? filterDefsQuotation : filterDefsInvoice;
+    const container = document.getElementById('filterChips');
+    container.innerHTML = defs.map(d => {
+      const count = d.key === 'semua' ? allInvoices.length : allInvoices.filter(i => i.status === d.key).length;
+      const active = d.key === currentFilter;
+      return `<button data-filter="${d.key}" class="chip shrink-0 px-4 py-2 rounded-full text-xs font-semibold transition ${chipClasses(d.style, active)}">${d.label} <span class="opacity-70">${count}</span></button>`;
+    }).join('');
+
+    container.querySelectorAll('.chip').forEach(btn => {
+      btn.addEventListener('click', () => {
+        currentFilter = btn.dataset.filter;
+        renderFilterChips();
+        render();
+      });
+    });
+  }
+
+  function updatePageChrome() {
+    const isQuotation = currentDocType === 'quotation';
+    document.getElementById('pageTitle').textContent = isQuotation ? 'Riwayat Quotation' : 'Riwayat Invoice';
+    document.title = isQuotation ? 'Genset Invoice — Riwayat Quotation' : 'Genset Invoice — Riwayat Invoice';
+    document.getElementById('createBtn').href = isQuotation ? 'invoice-editor-functional.html?type=quotation' : 'invoice-editor-functional.html';
+    document.getElementById('createBtnMobile').href = isQuotation ? 'invoice-editor-functional.html?type=quotation' : 'invoice-editor-functional.html';
+    document.getElementById('createBtnLabel').textContent = isQuotation ? 'Buat Quotation' : 'Buat Invoice';
+    document.getElementById('createBtnLabelMobile').textContent = isQuotation ? 'Buat Quotation' : 'Buat Invoice';
+
+    document.getElementById('typeTabInvoice').classList.toggle('bg-ink', !isQuotation);
+    document.getElementById('typeTabInvoice').classList.toggle('text-white', !isQuotation);
+    document.getElementById('typeTabInvoice').classList.toggle('text-slate', isQuotation);
+    document.getElementById('typeTabQuotation').classList.toggle('bg-ink', isQuotation);
+    document.getElementById('typeTabQuotation').classList.toggle('text-white', isQuotation);
+    document.getElementById('typeTabQuotation').classList.toggle('text-slate', !isQuotation);
+
+    document.getElementById('emptyStateTitle').textContent = isQuotation ? 'Belum ada quotation' : 'Belum ada invoice';
+    document.getElementById('emptyStateDesc').textContent = isQuotation ? 'Quotation yang kamu buat akan muncul di sini.' : 'Invoice yang kamu buat akan muncul di sini.';
+    document.getElementById('emptyStateBtn').href = isQuotation ? 'invoice-editor-functional.html?type=quotation' : 'invoice-editor-functional.html';
+    document.getElementById('emptyStateBtnLabel').textContent = isQuotation ? 'Buat Quotation Pertama' : 'Buat Invoice Pertama';
+  }
+
+  document.getElementById('typeTabInvoice').addEventListener('click', () => {
+    currentDocType = 'invoice';
+    currentFilter = 'semua';
+    updatePageChrome();
+    fetchInvoices();
+  });
+  document.getElementById('typeTabQuotation').addEventListener('click', () => {
+    currentDocType = 'quotation';
+    currentFilter = 'semua';
+    updatePageChrome();
+    fetchInvoices();
+  });
 
   async function fetchInvoices() {
+    document.getElementById('loadingSkeleton').classList.remove('hidden');
     const { data, error } = await supabase
       .from('invoices')
       .select('*')
       .eq('access_code', APP_ID)
+      .eq('doc_type', currentDocType)
       .order('tanggal', { ascending: false });
 
     document.getElementById('loadingSkeleton').classList.add('hidden');
@@ -189,16 +292,9 @@
     } else {
       allInvoices = data || [];
     }
-    updateCounts();
+    document.getElementById('pageSubtitle').textContent = `${allInvoices.length} ${currentDocType === 'quotation' ? 'quotation' : 'invoice'} total`;
+    renderFilterChips();
     render();
-  }
-
-  function updateCounts() {
-    document.getElementById('countSemua').textContent = allInvoices.length;
-    document.getElementById('countDraft').textContent = allInvoices.filter(i => i.status === 'draft').length;
-    document.getElementById('countSent').textContent = allInvoices.filter(i => i.status === 'sent').length;
-    document.getElementById('countPaid').textContent = allInvoices.filter(i => i.status === 'paid').length;
-    document.getElementById('countOverdue').textContent = allInvoices.filter(i => i.status === 'overdue').length;
   }
 
   function render() {
@@ -247,7 +343,8 @@
         <p class="text-xs font-semibold text-slate uppercase tracking-wide mb-2.5 px-1">${monthLabel}</p>
         <div class="bg-panel rounded-2xl border border-slate-100 shadow-sm divide-y divide-slate-100 overflow-hidden">
           ${invoices.map(inv => {
-            const meta = statusMeta[inv.status] || statusMeta.draft;
+            const activeStatusMeta = currentDocType === 'quotation' ? statusMetaQuotation : statusMeta;
+            const meta = activeStatusMeta[inv.status] || activeStatusMeta.draft;
             const isOverdue = inv.status === 'overdue';
             return `
             <a href="invoice-preview.html?id=${inv.id}" class="row-hover flex items-center gap-4 px-5 py-4 hover:bg-slate-50 ${isOverdue ? 'bg-red-50/20' : ''}">
@@ -268,23 +365,6 @@
     `).join('');
   }
 
-  document.getElementById('filterChips').addEventListener('click', (e) => {
-    const btn = e.target.closest('.chip');
-    if (!btn) return;
-    document.querySelectorAll('#filterChips .chip').forEach(c => {
-      c.classList.remove('active', 'bg-ink', 'text-white');
-      if (c.dataset.filter !== 'overdue') c.classList.add('bg-panel', 'border', 'border-slate-200', 'text-slate');
-    });
-    if (btn.dataset.filter === 'overdue') {
-      btn.classList.add('active');
-    } else {
-      btn.classList.remove('bg-panel', 'border', 'border-slate-200', 'text-slate');
-      btn.classList.add('active', 'bg-ink', 'text-white');
-    }
-    currentFilter = btn.dataset.filter;
-    render();
-  });
-
   let searchTimeout;
   document.getElementById('searchInput').addEventListener('input', (e) => {
     clearTimeout(searchTimeout);
@@ -294,6 +374,7 @@
     }, 200);
   });
 
+  updatePageChrome();
   fetchInvoices();
 })();
 </script>

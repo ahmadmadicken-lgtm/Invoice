@@ -170,6 +170,7 @@
       .from('invoices')
       .select('*')
       .eq('access_code', APP_ID)
+      .eq('doc_type', 'invoice')
       .order('tanggal', { ascending: false });
 
     document.getElementById('custLoadingSkeleton').classList.add('hidden');
