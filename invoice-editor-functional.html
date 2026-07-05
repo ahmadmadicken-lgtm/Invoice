@@ -1,0 +1,619 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Genset Invoice — Buat Invoice (Fungsional)</title>
+<script src="https://cdn.tailwindcss.com"></script>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Manrope:wght@500;600;700;800&family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/dist/umd/supabase.min.js"></script>
+<script>
+  tailwind.config = {
+    theme: {
+      extend: {
+        colors: {
+          ink:    '#14171F',
+          slate:  { DEFAULT: '#5B6472', 50:'#F5F6F7',100:'#E9EBEE',200:'#D3D7DD',300:'#B3BAC4' },
+          paper:  '#FAFAF9',
+          panel:  '#FFFFFF',
+          power:  { DEFAULT:'#C7791F', 50:'#FBF3E9', 100:'#F5E1C4', 600:'#B36A16', 700:'#95580F' },
+        },
+        fontFamily: { display: ['Manrope','sans-serif'], body: ['Inter','sans-serif'] }
+      }
+    }
+  }
+</script>
+<style>
+  body { font-family:'Inter',sans-serif; background:#FAFAF9; }
+  .font-display { font-family:'Manrope',sans-serif; }
+  .tnum { font-variant-numeric: tabular-nums; }
+  .chip.active { background:#FBF3E9; border-color:#F5E1C4; color:#95580F; }
+  input[type=number]::-webkit-inner-spin-button,
+  input[type=number]::-webkit-outer-spin-button { -webkit-appearance: none; margin: 0; }
+  details > summary { list-style: none; }
+  details > summary::-webkit-details-marker { display: none; }
+  details[open] .chev { transform: rotate(180deg); }
+  .fade-in { animation: fadeIn .2s ease; }
+  @keyframes fadeIn { from { opacity:0; transform: translateY(-4px); } to { opacity:1; transform: translateY(0); } }
+  .toast { transition: opacity .3s ease, transform .3s ease; }
+</style>
+<link rel="manifest" href="./manifest.json">
+<meta name="theme-color" content="#C7791F">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="default">
+<meta name="apple-mobile-web-app-title" content="GensetInvoice">
+<link rel="apple-touch-icon" href="./icons/icon-192.png">
+<link rel="icon" type="image/png" sizes="192x192" href="./icons/icon-192.png">
+</head>
+<body class="text-ink">
+
+<div class="max-w-6xl mx-auto">
+
+  <!-- Header -->
+  <header class="sticky top-0 z-20 bg-panel/90 backdrop-blur border-b border-slate-100">
+    <div class="flex items-center justify-between px-5 md:px-10 py-4">
+      <div class="flex items-center gap-3">
+        <button class="w-8 h-8 rounded-full hover:bg-slate-50 flex items-center justify-center text-slate">
+          <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M19 12H5M12 19l-7-7 7-7"/></svg>
+        </button>
+        <div>
+          <h1 class="font-display text-base font-700 text-ink">Invoice Servis Baru</h1>
+          <p id="saveStatus" class="text-xs text-slate flex items-center gap-1.5 mt-0.5">
+            <span class="w-1.5 h-1.5 rounded-full bg-green-500"></span> Tersimpan otomatis
+          </p>
+        </div>
+      </div>
+      <div class="hidden md:block text-xs text-slate font-medium tnum" data-invoice-no>No. ...</div>
+    </div>
+  </header>
+
+  <div class="px-5 md:px-10 py-6 pb-40 md:pb-10 grid md:grid-cols-2 gap-8">
+
+    <!-- ============ FORM ============ -->
+    <div class="space-y-5">
+
+      <div class="grid grid-cols-2 gap-3">
+        <div>
+          <label class="text-xs font-semibold text-slate uppercase tracking-wide">Tanggal</label>
+          <input id="tanggal" type="date" class="mt-1.5 w-full px-4 py-2.5 rounded-xl border border-slate-200 text-sm focus:outline-none focus:ring-2 focus:ring-power/40 focus:border-power">
+        </div>
+        <div>
+          <label class="text-xs font-semibold text-slate uppercase tracking-wide">Jatuh Tempo</label>
+          <input id="jatuhTempo" type="date" class="mt-1.5 w-full px-4 py-2.5 rounded-xl border border-slate-200 text-sm focus:outline-none focus:ring-2 focus:ring-power/40 focus:border-power">
+        </div>
+      </div>
+
+      <div class="bg-panel rounded-2xl border border-slate-100 shadow-sm p-5">
+        <label class="text-xs font-semibold text-slate uppercase tracking-wide">Customer</label>
+        <input id="customerNama" type="text" placeholder="Nama customer..." class="mt-1.5 w-full px-4 py-2.5 rounded-xl border border-slate-200 text-sm focus:outline-none focus:ring-2 focus:ring-power/40 focus:border-power">
+        <label class="text-xs font-semibold text-slate uppercase tracking-wide mt-3 block">No. HP</label>
+        <input id="customerHp" type="tel" inputmode="tel" placeholder="mis. 0812-3456-7890" class="mt-1.5 w-full px-4 py-2.5 rounded-xl border border-slate-200 text-sm focus:outline-none focus:ring-2 focus:ring-power/40 focus:border-power">
+      </div>
+
+      <div class="bg-panel rounded-2xl border-2 border-power-100 shadow-sm p-5 space-y-4">
+        <div class="flex items-center gap-2">
+          <div class="w-7 h-7 rounded-lg bg-power-50 flex items-center justify-center">
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#C7791F" stroke-width="2.5"><path d="M14.7 6.3a1 1 0 000 1.4l1.6 1.6a1 1 0 001.4 0l3.77-3.77a6 6 0 01-7.94 7.94l-6.91 6.91a2.12 2.12 0 01-3-3l6.91-6.91a6 6 0 017.94-7.94l-3.76 3.76z"/></svg>
+          </div>
+          <h2 class="font-display text-sm font-700 text-ink">Detail Servis</h2>
+        </div>
+
+        <div>
+          <label class="text-xs font-semibold text-slate uppercase tracking-wide">Jenis Servis</label>
+          <div id="jenisServisChips" class="flex flex-wrap gap-2 mt-1.5">
+            <button data-val="Servis Rutin" class="chip active px-3 py-2 rounded-lg border text-xs font-semibold">Servis Rutin</button>
+            <button data-val="Perbaikan" class="chip px-3 py-2 rounded-lg bg-slate-50 border border-slate-200 text-slate text-xs font-semibold">Perbaikan</button>
+            <button data-val="Overhaul" class="chip px-3 py-2 rounded-lg bg-slate-50 border border-slate-200 text-slate text-xs font-semibold">Overhaul</button>
+            <button data-val="Pemasangan" class="chip px-3 py-2 rounded-lg bg-slate-50 border border-slate-200 text-slate text-xs font-semibold">Pemasangan</button>
+          </div>
+        </div>
+
+        <div>
+          <label class="text-xs font-semibold text-slate uppercase tracking-wide">Unit Genset Customer</label>
+          <input id="unitGenset" type="text" placeholder="mis. Cummins 50 kVA, No. Seri C-0421" class="mt-1.5 w-full px-4 py-2.5 rounded-xl border border-slate-200 text-sm focus:outline-none focus:ring-2 focus:ring-power/40 focus:border-power">
+        </div>
+
+        <div>
+          <label class="text-xs font-semibold text-slate uppercase tracking-wide">Deskripsi Pekerjaan</label>
+          <textarea id="deskripsi" rows="3" placeholder="mis. Ganti oli, filter udara, dan cek aki" class="mt-1.5 w-full px-4 py-2.5 rounded-xl border border-slate-200 text-sm focus:outline-none focus:ring-2 focus:ring-power/40 focus:border-power"></textarea>
+        </div>
+
+        <div>
+          <label class="text-xs font-semibold text-slate uppercase tracking-wide flex items-center gap-1.5">Lokasi Servis <span class="text-power">*</span></label>
+          <input id="lokasi" type="text" placeholder="Alamat lokasi servis..." class="mt-1.5 w-full px-4 py-2.5 rounded-xl border border-slate-200 text-sm focus:outline-none focus:ring-2 focus:ring-power/40 focus:border-power">
+        </div>
+      </div>
+
+      <div class="bg-panel rounded-2xl border border-slate-100 shadow-sm p-5">
+        <label class="text-xs font-semibold text-slate uppercase tracking-wide">Jasa Servis</label>
+        <div class="flex items-center gap-3 mt-1.5">
+          <input id="jasaDesc" type="text" placeholder="Deskripsi jasa" value="Jasa teknisi & kunjungan" class="flex-1 px-4 py-2.5 rounded-xl border border-slate-200 text-sm">
+          <input id="jasaHarga" type="number" inputmode="numeric" placeholder="0" value="350000" class="w-36 px-4 py-2.5 rounded-xl border border-slate-200 text-sm tnum text-right">
+        </div>
+      </div>
+
+      <!-- Sparepart — dynamic rows -->
+      <div class="bg-panel rounded-2xl border border-slate-100 shadow-sm p-5">
+        <div class="flex items-center justify-between mb-3">
+          <label class="text-xs font-semibold text-slate uppercase tracking-wide">Sparepart</label>
+          <span id="sparepartCount" class="text-xs text-slate">0 item</span>
+        </div>
+        <div id="sparepartRows" class="space-y-2.5"></div>
+        <button id="addSparepart" class="mt-3 w-full py-2.5 rounded-xl border border-dashed border-slate-300 text-xs font-semibold text-slate hover:border-power-200 hover:text-power hover:bg-power-50/40 transition flex items-center justify-center gap-1.5">
+          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M12 5v14M5 12h14"/></svg>
+          Tambah Sparepart
+        </button>
+      </div>
+
+      <details class="bg-panel rounded-2xl border border-slate-100 shadow-sm">
+        <summary class="flex items-center justify-between p-5 cursor-pointer">
+          <span class="text-sm font-semibold text-ink">+ DP &amp; Diskon</span>
+          <svg class="chev transition-transform" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#5B6472" stroke-width="2"><path d="M6 9l6 6 6-6"/></svg>
+        </summary>
+        <div class="px-5 pb-5 space-y-4 border-t border-slate-100 pt-4">
+          <div>
+            <label class="text-xs font-semibold text-slate uppercase tracking-wide">Jumlah DP</label>
+            <input id="dpJumlah" type="number" inputmode="numeric" placeholder="0" class="mt-1.5 w-full px-3 py-2 rounded-lg border border-slate-200 text-sm tnum">
+          </div>
+          <div>
+            <label class="text-xs font-semibold text-slate uppercase tracking-wide">Potongan Harga (Diskon)</label>
+            <div class="flex gap-2 mt-1.5">
+              <input id="potonganNilai" type="number" inputmode="numeric" placeholder="0" class="flex-1 px-3 py-2 rounded-lg border border-slate-200 text-sm tnum">
+              <div id="diskonTypeToggle" class="flex rounded-lg border border-slate-200 overflow-hidden shrink-0">
+                <button type="button" data-type="nominal" class="diskon-type-chip px-3 py-2 text-xs font-semibold bg-power-50 text-power-700">Rp</button>
+                <button type="button" data-type="persen" class="diskon-type-chip px-3 py-2 text-xs font-semibold text-slate border-l border-slate-200">%</button>
+              </div>
+            </div>
+            <p id="diskonPreview" class="text-xs text-slate mt-1.5 hidden"></p>
+          </div>
+        </div>
+      </details>
+
+      <details class="bg-panel rounded-2xl border border-slate-100 shadow-sm">
+        <summary class="flex items-center justify-between p-5 cursor-pointer">
+          <span class="text-sm font-semibold text-ink">+ Catatan</span>
+          <svg class="chev transition-transform" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#5B6472" stroke-width="2"><path d="M6 9l6 6 6-6"/></svg>
+        </summary>
+        <div class="px-5 pb-5 border-t border-slate-100 pt-4">
+          <textarea id="catatan" rows="3" placeholder="Catatan tambahan untuk customer..." class="w-full px-3 py-2 rounded-lg border border-slate-200 text-sm"></textarea>
+        </div>
+      </details>
+
+    </div>
+
+    <!-- ============ LIVE PREVIEW ============ -->
+    <div class="hidden md:block">
+      <div class="sticky top-24">
+        <p class="text-xs font-semibold text-slate uppercase tracking-wide mb-3">Preview Langsung</p>
+        <div class="bg-panel rounded-2xl border border-slate-100 shadow-sm p-7">
+          <div class="flex items-start justify-between mb-6">
+            <div>
+              <div class="w-8 h-8 rounded-lg bg-power flex items-center justify-center mb-2">
+                <svg width="16" height="16" viewBox="0 0 24 24" fill="none"><path d="M13 2L4 14h6l-1 8 9-12h-6l1-8z" fill="white"/></svg>
+              </div>
+              <p class="font-display font-700 text-sm text-ink">Bengkel Genset Andi</p>
+            </div>
+            <div class="text-right">
+              <p class="font-display font-800 text-lg text-ink">INVOICE</p>
+              <p class="text-xs text-slate tnum">INV-0032</p>
+            </div>
+          </div>
+
+          <div class="flex justify-between text-xs mb-5 pb-5 border-b border-slate-100">
+            <div>
+              <p class="text-slate mb-1">Ditagihkan kepada</p>
+              <p id="pvCustomer" class="font-semibold text-ink">—</p>
+              <p id="pvUnit" class="text-slate mt-0.5"></p>
+            </div>
+            <div class="text-right">
+              <p class="text-slate mb-1">Jatuh tempo</p>
+              <p id="pvDue" class="font-semibold text-ink tnum">—</p>
+            </div>
+          </div>
+
+          <div class="mb-5 pb-5 border-b border-slate-100">
+            <p class="text-xs font-semibold text-slate uppercase tracking-wide mb-2">Jasa Servis</p>
+            <div class="flex justify-between text-sm mb-3">
+              <span id="pvJasaDesc" class="text-ink">—</span>
+              <span id="pvJasaHarga" class="tnum font-medium text-ink">Rp 0</span>
+            </div>
+            <div id="pvSparepartList" class="space-y-1.5"></div>
+          </div>
+
+          <div class="space-y-1.5 mb-2">
+            <div class="flex justify-between text-sm">
+              <span class="text-slate">Subtotal</span>
+              <span id="pvSubtotal" class="tnum text-ink">Rp 0</span>
+            </div>
+            <div id="pvDpRow" class="flex justify-between text-sm hidden">
+              <span class="text-slate">DP Dibayar</span>
+              <span id="pvDp" class="tnum text-ink">Rp 0</span>
+            </div>
+            <div class="flex justify-between text-base font-display font-800 pt-2 border-t border-slate-100">
+              <span class="text-ink">Total</span>
+              <span id="pvTotal" class="tnum text-power">Rp 0</span>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+  </div>
+</div>
+
+<!-- Sticky bottom bar (mobile) -->
+<div class="md:hidden fixed bottom-0 left-0 right-0 bg-panel border-t border-slate-100 px-5 py-3 pb-[max(0.75rem,env(safe-area-inset-bottom))]">
+  <div class="flex items-center justify-between mb-2">
+    <span class="text-xs text-slate">Total</span>
+    <span id="mobileTotal" class="font-display font-800 text-lg tnum text-ink">Rp 0</span>
+  </div>
+  <button class="w-full py-3.5 rounded-xl bg-power text-white text-sm font-semibold shadow-sm active:scale-[0.99] transition flex items-center justify-center gap-2">
+    Lihat & Kirim
+    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="white" stroke-width="2.5"><path d="M5 12h14M12 5l7 7-7 7"/></svg>
+  </button>
+</div>
+
+<!-- Toast -->
+<div id="toast" class="toast fixed bottom-24 md:bottom-8 left-1/2 -translate-x-1/2 bg-ink text-white text-xs font-medium px-4 py-2.5 rounded-full shadow-lg opacity-0 pointer-events-none z-50">
+  Draft tersimpan
+</div>
+
+<script>
+(function(){
+  // ============================================
+  // Supabase connection
+  // ============================================
+  const SUPABASE_URL = 'https://qnathomwpcovmvzowfou.supabase.co';
+  const SUPABASE_ANON_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InFuYXRob213cGNvdm12em93Zm91Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODMwNzkzMDUsImV4cCI6MjA5ODY1NTMwNX0.5duwvoHE7ZWd_p1qxP7wtAvmbw439ed2ccdLKeZtpfE';
+  const APP_ID = 'bengkel-genset-andi'; // ID tetap — sama di semua device, tanpa login
+  const supabase = window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
+
+  // Nomor invoice: kalau ada di URL (?edit=INV-0032) berarti buka invoice lama untuk diedit.
+  // Kalau tidak ada, ini invoice baru — nomor akan digenerate sekali dari counter di business_settings.
+  const urlParams = new URLSearchParams(window.location.search);
+  let INVOICE_NO = urlParams.get('edit'); // null kalau invoice baru
+  let STORAGE_KEY = null; // diisi setelah INVOICE_NO diketahui
+  const rupiah = n => 'Rp ' + (Number(n)||0).toLocaleString('id-ID');
+
+  async function ensureInvoiceNumber() {
+    if (INVOICE_NO) {
+      STORAGE_KEY = 'genset_invoice_draft_' + INVOICE_NO;
+      return;
+    }
+
+    try {
+      // Ambil & kunci nomor berikutnya dari business_settings
+      let { data: settings, error } = await supabase
+        .from('business_settings')
+        .select('next_invoice_number, invoice_prefix')
+        .eq('access_code', APP_ID)
+        .maybeSingle();
+
+      if (error) throw error;
+
+      // Kalau belum ada baris settings sama sekali, buat default dulu
+      if (!settings) {
+        const { data: created } = await supabase
+          .from('business_settings')
+          .insert({ access_code: APP_ID, next_invoice_number: 1, invoice_prefix: 'INV-' })
+          .select('next_invoice_number, invoice_prefix')
+          .single();
+        settings = created;
+      }
+
+      const nextNum = settings.next_invoice_number || 1;
+      const prefix = settings.invoice_prefix || 'INV-';
+      INVOICE_NO = prefix + String(nextNum).padStart(4, '0');
+
+      // Naikkan counter untuk invoice berikutnya
+      await supabase
+        .from('business_settings')
+        .update({ next_invoice_number: nextNum + 1 })
+        .eq('access_code', APP_ID);
+
+    } catch (err) {
+      console.warn('Gagal generate nomor invoice dari server, pakai nomor sementara:', err.message);
+      // Fallback: nomor sementara berbasis timestamp, supaya tidak bentrok walau offline
+      INVOICE_NO = 'INV-TMP-' + Date.now().toString().slice(-6);
+    }
+
+    STORAGE_KEY = 'genset_invoice_draft_' + INVOICE_NO;
+    document.querySelector('[data-invoice-no]').textContent = 'No. ' + INVOICE_NO;
+  }
+
+  const sparepartRowsEl = document.getElementById('sparepartRows');
+  let sparepartId = 0;
+
+  function newSparepartRow(data = {}) {
+    sparepartId++;
+    const id = 'sp_' + sparepartId;
+    const row = document.createElement('div');
+    row.className = 'flex items-center gap-2 bg-slate-50 rounded-xl p-2.5 fade-in';
+    row.dataset.id = id;
+    row.innerHTML = `
+      <input type="text" placeholder="Nama part" value="${data.nama||''}" class="sp-nama flex-1 min-w-0 px-3 py-2 rounded-lg border border-slate-200 text-sm bg-white">
+      <input type="number" inputmode="numeric" placeholder="Qty" value="${data.qty||1}" class="sp-qty w-14 px-2 py-2 rounded-lg border border-slate-200 text-sm tnum text-center bg-white">
+      <select class="sp-satuan w-16 px-1 py-2 rounded-lg border border-slate-200 text-xs bg-white">
+        ${['Pcs','Lot','Set','Liter','Kg','Unit'].map(u => `<option value="${u}" ${data.satuan===u?'selected':''}>${u}</option>`).join('')}
+      </select>
+      <input type="number" inputmode="numeric" placeholder="Harga" value="${data.harga||''}" class="sp-harga w-24 px-2 py-2 rounded-lg border border-slate-200 text-sm tnum text-right bg-white">
+      <button class="sp-remove w-8 h-8 shrink-0 rounded-lg hover:bg-red-50 text-slate hover:text-red-600 flex items-center justify-center transition">
+        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M18 6L6 18M6 6l12 12"/></svg>
+      </button>`;
+    sparepartRowsEl.appendChild(row);
+    row.querySelectorAll('input, select').forEach(inp => inp.addEventListener('input', onChange));
+    row.querySelector('.sp-remove').addEventListener('click', () => { row.remove(); onChange(); });
+  }
+
+  document.getElementById('addSparepart').addEventListener('click', () => { newSparepartRow(); onChange(); });
+
+  // Jenis servis chips
+  document.getElementById('jenisServisChips').addEventListener('click', (e) => {
+    const btn = e.target.closest('.chip');
+    if (!btn) return;
+    document.querySelectorAll('#jenisServisChips .chip').forEach(c => c.classList.remove('active'));
+    btn.classList.add('active');
+    onChange();
+  });
+
+  // Toggle tipe diskon: Rp / %
+  document.getElementById('diskonTypeToggle').addEventListener('click', (e) => {
+    const btn = e.target.closest('.diskon-type-chip');
+    if (!btn) return;
+    document.querySelectorAll('.diskon-type-chip').forEach(c => {
+      c.classList.remove('bg-power-50', 'text-power-700');
+      c.classList.add('text-slate');
+    });
+    btn.classList.add('bg-power-50', 'text-power-700');
+    btn.classList.remove('text-slate');
+    onChange();
+  });
+
+  function getState() {
+    const spareparts = [...sparepartRowsEl.querySelectorAll('[data-id]')].map(row => ({
+      nama: row.querySelector('.sp-nama').value,
+      qty: Number(row.querySelector('.sp-qty').value) || 0,
+      harga: Number(row.querySelector('.sp-harga').value) || 0,
+      satuan: row.querySelector('.sp-satuan').value,
+    }));
+    return {
+      tanggal: document.getElementById('tanggal').value,
+      jatuhTempo: document.getElementById('jatuhTempo').value,
+      customerNama: document.getElementById('customerNama').value,
+      customerHp: document.getElementById('customerHp').value,
+      jenisServis: document.querySelector('#jenisServisChips .chip.active')?.dataset.val || '',
+      unitGenset: document.getElementById('unitGenset').value,
+      deskripsi: document.getElementById('deskripsi').value,
+      lokasi: document.getElementById('lokasi').value,
+      jasaDesc: document.getElementById('jasaDesc').value,
+      jasaHarga: Number(document.getElementById('jasaHarga').value) || 0,
+      spareparts,
+      dpJumlah: Number(document.getElementById('dpJumlah').value) || 0,
+      potonganNilai: Number(document.getElementById('potonganNilai').value) || 0,
+      potonganTipe: document.querySelector('.diskon-type-chip.bg-power-50')?.dataset.type || 'nominal',
+      catatan: document.getElementById('catatan').value,
+    };
+  }
+
+  function hitungDiskonNominal(subtotal, tipe, nilai) {
+    if (tipe === 'persen') return Math.round(subtotal * (nilai / 100));
+    return nilai;
+  }
+
+  function render(state) {
+    // sparepart count + subtotal
+    const spareTotal = state.spareparts.reduce((sum, sp) => sum + (sp.qty * sp.harga), 0);
+    const subtotal = state.jasaHarga + spareTotal;
+    const potonganNominal = hitungDiskonNominal(subtotal, state.potonganTipe, state.potonganNilai);
+    const afterDiskon = Math.max(subtotal - potonganNominal, 0);
+    const total = Math.max(afterDiskon - state.dpJumlah, 0);
+
+    document.getElementById('sparepartCount').textContent = state.spareparts.length + ' item';
+
+    // Tampilkan hasil hitungan diskon kalau pakai persen, biar user lihat nominal aslinya
+    const diskonPreviewEl = document.getElementById('diskonPreview');
+    if (state.potonganTipe === 'persen' && state.potonganNilai > 0) {
+      diskonPreviewEl.textContent = `= potongan ${rupiah(potonganNominal)}`;
+      diskonPreviewEl.classList.remove('hidden');
+    } else {
+      diskonPreviewEl.classList.add('hidden');
+    }
+
+    // preview
+    document.getElementById('pvCustomer').textContent = state.customerNama || '—';
+    document.getElementById('pvUnit').textContent = state.unitGenset || '';
+    document.getElementById('pvDue').textContent = state.jatuhTempo ? new Date(state.jatuhTempo).toLocaleDateString('id-ID', {day:'numeric', month:'short', year:'numeric'}) : '—';
+    document.getElementById('pvJasaDesc').textContent = state.jasaDesc || '—';
+    document.getElementById('pvJasaHarga').textContent = rupiah(state.jasaHarga);
+
+    const pvList = document.getElementById('pvSparepartList');
+    pvList.innerHTML = state.spareparts.filter(sp => sp.nama).map(sp => `
+      <div class="flex justify-between text-sm">
+        <span class="text-ink">${sp.nama} <span class="text-slate">× ${sp.qty} ${sp.satuan||''}</span></span>
+        <span class="tnum text-ink">${rupiah(sp.qty * sp.harga)}</span>
+      </div>`).join('');
+
+    document.getElementById('pvSubtotal').textContent = rupiah(subtotal);
+    document.getElementById('pvTotal').textContent = rupiah(total);
+    document.getElementById('mobileTotal').textContent = rupiah(total);
+
+    const dpRow = document.getElementById('pvDpRow');
+    if (state.dpJumlah > 0) {
+      dpRow.classList.remove('hidden');
+      document.getElementById('pvDp').textContent = '- ' + rupiah(state.dpJumlah);
+    } else {
+      dpRow.classList.add('hidden');
+    }
+  }
+
+  let saveTimeout;
+  function onChange() {
+    const state = getState();
+    render(state);
+    clearTimeout(saveTimeout);
+    saveTimeout = setTimeout(() => save(state), 400);
+  }
+
+  function updateSaveStatusUI(state) {
+    const el = document.getElementById('saveStatus');
+    if (state === 'saving') {
+      el.innerHTML = '<span class="w-1.5 h-1.5 rounded-full bg-slate-300 animate-pulse"></span> Menyimpan...';
+    } else if (state === 'saved') {
+      el.innerHTML = '<span class="w-1.5 h-1.5 rounded-full bg-green-500"></span> Tersimpan otomatis';
+    } else if (state === 'offline') {
+      el.innerHTML = '<span class="w-1.5 h-1.5 rounded-full bg-amber-500"></span> Tersimpan lokal — akan sync saat online';
+    }
+  }
+
+  async function save(state) {
+    // 1. Simpan ke localStorage dulu — instan, jalan walau offline
+    localStorage.setItem(STORAGE_KEY, JSON.stringify(state));
+    updateSaveStatusUI('saving');
+
+    const spareTotal = state.spareparts.reduce((sum, sp) => sum + (sp.qty * sp.harga), 0);
+    const subtotal = state.jasaHarga + spareTotal;
+    const potonganNominal = hitungDiskonNominal(subtotal, state.potonganTipe, state.potonganNilai);
+    const afterDiskon = Math.max(subtotal - potonganNominal, 0);
+    const total = Math.max(afterDiskon - state.dpJumlah, 0);
+
+    // 2. Coba sync ke Supabase
+    try {
+      const { error } = await supabase.from('invoices').upsert({
+        access_code: APP_ID,
+        invoice_no: INVOICE_NO,
+        status: 'draft',
+        tanggal: state.tanggal || null,
+        jatuh_tempo: state.jatuhTempo || null,
+        customer_nama: state.customerNama,
+        customer_hp: state.customerHp,
+        jenis_servis: state.jenisServis,
+        unit_genset: state.unitGenset,
+        deskripsi: state.deskripsi,
+        lokasi: state.lokasi,
+        jasa_desc: state.jasaDesc,
+        jasa_harga: state.jasaHarga,
+        spareparts: state.spareparts,
+        dp_jumlah: state.dpJumlah,
+        potongan_tipe: state.potonganTipe,
+        potongan_nilai: state.potonganNilai,
+        potongan_harga: potonganNominal,
+        catatan: state.catatan,
+        subtotal,
+        total
+      }, { onConflict: 'invoice_no,access_code' });
+
+      if (error) throw error;
+      updateSaveStatusUI('saved');
+    } catch (err) {
+      console.warn('Sync ke Supabase gagal, data aman di HP/laptop ini, akan dicoba lagi:', err.message);
+      updateSaveStatusUI('offline');
+    }
+  }
+
+  window.addEventListener('online', () => {
+    const state = getState();
+    save(state);
+  });
+
+  function showToast() {
+    const toast = document.getElementById('toast');
+    toast.style.opacity = '1';
+    toast.style.transform = 'translate(-50%, -4px)';
+    clearTimeout(showToast._t);
+    showToast._t = setTimeout(() => {
+      toast.style.opacity = '0';
+      toast.style.transform = 'translate(-50%, 0)';
+    }, 1200);
+  }
+
+  async function loadDraft() {
+    let saved = null;
+
+    // Coba ambil dari Supabase dulu (data terbaru, bisa jadi diedit dari device lain)
+    try {
+      const { data, error } = await supabase
+        .from('invoices')
+        .select('*')
+        .eq('invoice_no', INVOICE_NO)
+        .eq('access_code', APP_ID)
+        .maybeSingle();
+      if (error) throw error;
+      if (data) {
+        saved = {
+          tanggal: data.tanggal, jatuhTempo: data.jatuh_tempo,
+          customerNama: data.customer_nama, customerHp: data.customer_hp, jenisServis: data.jenis_servis,
+          unitGenset: data.unit_genset, deskripsi: data.deskripsi,
+          lokasi: data.lokasi, jasaDesc: data.jasa_desc, jasaHarga: data.jasa_harga,
+          spareparts: data.spareparts || [], dpJumlah: data.dp_jumlah,
+          potonganTipe: data.potongan_tipe || 'nominal', potonganNilai: data.potongan_nilai || 0,
+          catatan: data.catatan
+        };
+      }
+    } catch (err) {
+      console.warn('Gagal ambil dari Supabase, pakai draft lokal:', err.message);
+      try { saved = JSON.parse(localStorage.getItem(STORAGE_KEY)); } catch(e) {}
+    }
+
+    if (saved) {
+      document.getElementById('tanggal').value = saved.tanggal || '';
+      document.getElementById('jatuhTempo').value = saved.jatuhTempo || '';
+      document.getElementById('customerNama').value = saved.customerNama || '';
+      document.getElementById('customerHp').value = saved.customerHp || '';
+      document.getElementById('unitGenset').value = saved.unitGenset || '';
+      document.getElementById('deskripsi').value = saved.deskripsi || '';
+      document.getElementById('lokasi').value = saved.lokasi || '';
+      document.getElementById('jasaDesc').value = saved.jasaDesc || '';
+      document.getElementById('jasaHarga').value = saved.jasaHarga || '';
+      document.getElementById('dpJumlah').value = saved.dpJumlah || '';
+      document.getElementById('potonganNilai').value = saved.potonganNilai || '';
+      if (saved.potonganTipe === 'persen') {
+        document.querySelectorAll('.diskon-type-chip').forEach(c => {
+          const isPersen = c.dataset.type === 'persen';
+          c.classList.toggle('bg-power-50', isPersen);
+          c.classList.toggle('text-power-700', isPersen);
+          c.classList.toggle('text-slate', !isPersen);
+        });
+      }
+      document.getElementById('catatan').value = saved.catatan || '';
+      if (saved.jenisServis) {
+        document.querySelectorAll('#jenisServisChips .chip').forEach(c => {
+          c.classList.toggle('active', c.dataset.val === saved.jenisServis);
+        });
+      }
+      (saved.spareparts && saved.spareparts.length ? saved.spareparts : [{},{},{}]).forEach(sp => newSparepartRow(sp));
+    } else {
+      // defaults for first-time / demo
+      const today = new Date();
+      const due = new Date(today.getTime() + 7*24*60*60*1000);
+      document.getElementById('tanggal').value = today.toISOString().slice(0,10);
+      document.getElementById('jatuhTempo').value = due.toISOString().slice(0,10);
+      newSparepartRow({nama:'Oli mesin 15W-40', qty:4, harga:85000});
+      newSparepartRow({nama:'Filter oli', qty:1, harga:65000});
+      newSparepartRow({nama:'Filter udara', qty:1, harga:120000});
+    }
+    render(getState());
+  }
+
+  // Wire all inputs
+  document.querySelectorAll('input, textarea').forEach(el => el.addEventListener('input', onChange));
+
+  (async function init() {
+    await ensureInvoiceNumber();
+    await loadDraft();
+  })();
+})();
+</script>
+
+<script>
+  if ('serviceWorker' in navigator) {
+    window.addEventListener('load', () => {
+      navigator.serviceWorker.register('./service-worker.js')
+        .then((reg) => console.log('Service worker aktif:', reg.scope))
+        .catch((err) => console.warn('Service worker gagal daftar:', err));
+    });
+  }
+</script>
+</body>
+</html>
