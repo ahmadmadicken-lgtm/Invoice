@@ -342,7 +342,7 @@
           <p class="mb-1">- Harga belum termasuk penggantian komponen, jika dalam proses pengerjaan ada temuan kerusakan komponen</p>
           <p>- Aki dan Oli disediakan oleh Customer</p>
           ${inv.catatan || biz.catatan_default ? `<p class="mt-2">${inv.catatan || biz.catatan_default}</p>` : ''}
-          ${inv.dp_jumlah > 0 ? `<p>Pembayaran DP ${rupiahPlain(inv.dp_jumlah)} saat konfirmasi order, pelunasan setelah pekerjaan selesai</p>` : ''}
+          ${inv.dp_jumlah > 0 ? `<p class="mt-2">Pembayaran DP ${rupiahPlain(inv.dp_jumlah)} saat konfirmasi order, pelunasan setelah pekerjaan selesai</p>` : ''}
           ${biz.bank_nama || biz.bank_no_rekening ? `
           <p class="mt-1"><span class="font-semibold">*</span> BANK ${biz.bank_nama || ''} — Rek: ${biz.bank_no_rekening || '—'}, A/n ${biz.bank_atas_nama || '—'}</p>
           ` : `<p class="mt-1">Info rekening belum diisi di Pengaturan</p>`}
