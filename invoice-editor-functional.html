@@ -336,53 +336,56 @@
     }
 
     try {
-      // Ambil prefix yang sesuai jenis dokumen dari business_settings
-      const prefixColumn = DOC_TYPE === 'quotation' ? 'quotation_prefix' : 'invoice_prefix';
       let { data: settings } = await supabase
         .from('business_settings')
-        .select(prefixColumn)
+        .select('invoice_prefix, quotation_prefix')
         .eq('access_code', APP_ID)
         .maybeSingle();
 
       if (!settings) {
-        const defaults = { access_code: APP_ID, invoice_prefix: 'INV-', quotation_prefix: 'QUO-' };
+        const defaults = { access_code: APP_ID, invoice_prefix: 'INV-SRV-', quotation_prefix: 'QUO-SRV-' };
         const { data: created } = await supabase
           .from('business_settings')
           .insert(defaults)
-          .select(prefixColumn)
+          .select('invoice_prefix, quotation_prefix')
           .single();
         settings = created;
       }
-      const prefix = settings[prefixColumn] || (DOC_TYPE === 'quotation' ? 'QUO-' : 'INV-');
+      const invoicePrefix = settings.invoice_prefix || 'INV-SRV-';
+      const prefix = DOC_TYPE === 'quotation' ? (settings.quotation_prefix || 'QUO-SRV-') : invoicePrefix;
 
-      // Cari nomor tertinggi yang BENAR-BENAR ada saat ini, lalu +1.
-      // Ini sengaja tidak pakai counter statis — supaya kalau invoice dengan
+      // Invoice dan Quotation berbagi 1 URUTAN NOMOR YANG SAMA — cuma beda huruf depan.
+      // Jadi cari nomor tertinggi dari SEMUA dokumen (invoice maupun quotation) sekaligus,
+      // baru +1. Ini juga sengaja tidak pakai counter statis — kalau dokumen dengan
       // nomor tertinggi dihapus, nomor itu otomatis terpakai lagi berikutnya.
       const { data: existing, error } = await supabase
         .from('invoices')
         .select('invoice_no')
-        .eq('access_code', APP_ID)
-        .like('invoice_no', `${prefix}%`);
+        .eq('access_code', APP_ID);
 
       if (error) throw error;
 
       let maxNum = 0;
       (existing || []).forEach(row => {
-        const suffix = row.invoice_no.slice(prefix.length);
-        const n = parseInt(suffix, 10);
-        if (!isNaN(n) && n > maxNum) maxNum = n;
+        // Ambil angka di akhir nomor, apapun huruf depannya (INV- atau QUO-)
+        const match = row.invoice_no.match(/(\d+)$/);
+        if (match) {
+          const n = parseInt(match[1], 10);
+          if (!isNaN(n) && n > maxNum) maxNum = n;
+        }
       });
 
-      INVOICE_NO = prefix + String(maxNum + 1).padStart(4, '0');
-
+      INVOICE_NO = prefix + String(Math.max(maxNum + 1, 11)).padStart(4, '0');
+      STORAGE_KEY = 'genset_invoice_draft_' + INVOICE_NO;
+      document.querySelector('[data-invoice-no]').textContent = 'No. ' + INVOICE_NO;
+      return;
     } catch (err) {
       console.warn('Gagal generate nomor invoice dari server, pakai nomor sementara:', err.message);
-      // Fallback: nomor sementara berbasis timestamp, supaya tidak bentrok walau offline
-      INVOICE_NO = 'INV-TMP-' + Date.now().toString().slice(-6);
+      INVOICE_NO = 'INV-SRV-TMP-' + Date.now().toString().slice(-6);
+      STORAGE_KEY = 'genset_invoice_draft_' + INVOICE_NO;
+      document.querySelector('[data-invoice-no]').textContent = 'No. ' + INVOICE_NO;
+      return;
     }
-
-    STORAGE_KEY = 'genset_invoice_draft_' + INVOICE_NO;
-    document.querySelector('[data-invoice-no]').textContent = 'No. ' + INVOICE_NO;
   }
 
   const sparepartRowsEl = document.getElementById('sparepartRows');

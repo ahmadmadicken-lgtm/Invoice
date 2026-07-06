@@ -338,6 +338,7 @@
           <table class="text-[13px] w-60">
             <tr class="border-b border-power-100"><td class="px-3 py-1.5 text-slate">Total</td><td class="px-3 py-1.5 text-right tnum text-ink font-medium">${rupiahPlain(inv.subtotal)}</td></tr>
             ${potonganHarga > 0 ? `<tr class="border-b border-power-100"><td class="px-3 py-1.5 text-slate">Diskon</td><td class="px-3 py-1.5 text-right tnum text-ink">- ${rupiahPlain(potonganHarga)}</td></tr>` : ''}
+            ${inv.dp_jumlah > 0 ? `<tr class="border-b border-power-100"><td class="px-3 py-1.5 text-slate">DP</td><td class="px-3 py-1.5 text-right tnum text-ink">- ${rupiahPlain(inv.dp_jumlah)}</td></tr>` : ''}
             <tr class="bg-power-50"><td class="px-3 py-2 font-bold text-power-700 text-sm">${isQuotation ? 'Estimasi Biaya' : 'Grand Total'}</td><td class="px-3 py-2 text-right tnum font-bold text-power-700 text-sm">${rupiahPlain(inv.total)}</td></tr>
           </table>
         </div>
@@ -348,7 +349,7 @@
 
       <!-- Deskripsi Pekerjaan -->
       ${inv.deskripsi ? `
-      <div class="mt-3.5 text-[13px]">
+      <div class="mt-6 text-[13px]">
         <p class="font-semibold text-ink mb-1">Deskripsi Pekerjaan :</p>
         <p class="text-slate leading-relaxed">${inv.deskripsi}</p>
       </div>` : ''}
@@ -424,27 +425,29 @@
     btns.forEach(b => { b.disabled = true; b.style.opacity = '0.6'; });
 
     try {
-      // Tentukan nomor invoice baru: cari nomor INV- tertinggi yang ada, +1
+      // Tentukan nomor invoice baru menggunakan urutan bersama (invoice + quotation digabung),
+      // supaya nomor yang dihasilkan konsisten dengan invoice/quotation lain, bukan urutan sendiri.
       const { data: settings } = await supabase
         .from('business_settings')
         .select('invoice_prefix')
         .eq('access_code', APP_ID)
         .maybeSingle();
-      const invPrefix = settings?.invoice_prefix || 'INV-';
+      const invPrefix = settings?.invoice_prefix || 'INV-SRV-';
 
       const { data: existing } = await supabase
         .from('invoices')
         .select('invoice_no')
-        .eq('access_code', APP_ID)
-        .eq('doc_type', 'invoice')
-        .like('invoice_no', `${invPrefix}%`);
+        .eq('access_code', APP_ID);
 
       let maxNum = 0;
       (existing || []).forEach(row => {
-        const n = parseInt(row.invoice_no.slice(invPrefix.length), 10);
-        if (!isNaN(n) && n > maxNum) maxNum = n;
+        const match = row.invoice_no.match(/(\d+)$/);
+        if (match) {
+          const n = parseInt(match[1], 10);
+          if (!isNaN(n) && n > maxNum) maxNum = n;
+        }
       });
-      const newInvoiceNo = invPrefix + String(maxNum + 1).padStart(4, '0');
+      const newInvoiceNo = invPrefix + String(Math.max(maxNum + 1, 11)).padStart(4, '0');
 
       // Salin semua data quotation ini jadi invoice baru
       const { data: newInvoice, error } = await supabase
