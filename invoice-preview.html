@@ -328,6 +328,13 @@
       <!-- Terbilang -->
       <p class="text-[13px] text-ink mt-3.5 leading-snug"><span class="italic text-slate">Terbilang :</span> <span class="font-semibold italic"># ${terbilang(inv.total)} Rupiah #</span></p>
 
+      <!-- Deskripsi Pekerjaan -->
+      ${inv.deskripsi ? `
+      <div class="mt-3.5 text-[13px]">
+        <p class="font-semibold text-ink mb-1">Deskripsi Pekerjaan :</p>
+        <p class="text-slate leading-relaxed">${inv.deskripsi}</p>
+      </div>` : ''}
+
       <!-- Note / Pembayaran -->
       <div class="mt-3.5 text-[13px] text-slate leading-relaxed flex justify-between gap-6">
         <div class="flex-1">
