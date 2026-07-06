@@ -256,10 +256,16 @@
             <p class="font-display font-800 text-base text-ink">${namaUsaha}</p>
           </div>
         </div>
-        <span class="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full ${badge.bg} border text-xs font-semibold ${badge.text}">
-          <span class="w-1.5 h-1.5 rounded-full ${badge.dot}"></span> ${badge.label}
-        </span>
+        <div class="relative">
+          <button id="statusBadgeBtn" class="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full ${badge.bg} border text-xs font-semibold ${badge.text} hover:brightness-95 transition">
+            <span class="w-1.5 h-1.5 rounded-full ${badge.dot}"></span> ${badge.label}
+            <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3"><path d="M6 9l6 6 6-6"/></svg>
+          </button>
+          <div id="statusDropdown" class="hidden absolute right-0 mt-2 w-48 bg-panel rounded-xl shadow-lg border border-slate-100 py-1.5 z-30"></div>
+        </div>
       </div>
+      ${inv.status === 'paid' && inv.tanggal_lunas ? `
+      <p class="text-xs text-slate text-right -mt-4 mb-6">Lunas pada ${tglFmt(inv.tanggal_lunas)}</p>` : ''}
 
       <!-- Border formal mengelilingi dokumen -->
       <div class="border-2 border-power-700 rounded-lg overflow-hidden">
@@ -393,6 +399,69 @@
       document.getElementById('convertBtnDesktop').classList.add('flex');
       document.getElementById('convertBtnMobile').classList.remove('hidden');
       document.getElementById('convertBtnMobile').classList.add('flex');
+    }
+
+    wireStatusDropdown(inv, isQuotation, badgeSet);
+  }
+
+  // ============================================
+  // Dropdown ubah status (konfirmasi pembayaran, dll)
+  // ============================================
+  function wireStatusDropdown(inv, isQuotation, badgeSet) {
+    const btn = document.getElementById('statusBadgeBtn');
+    const dropdown = document.getElementById('statusDropdown');
+
+    const optionKeys = isQuotation
+      ? ['draft', 'sent', 'approved', 'rejected', 'expired']
+      : ['draft', 'sent', 'paid', 'overdue'];
+
+    dropdown.innerHTML = optionKeys.map(key => {
+      const meta = badgeSet[key];
+      const isCurrent = key === inv.status;
+      return `
+        <button data-status="${key}" class="status-option w-full flex items-center gap-2 px-3.5 py-2 text-xs font-medium text-left hover:bg-slate-50 transition ${isCurrent ? 'text-ink font-semibold' : 'text-slate'}">
+          <span class="w-1.5 h-1.5 rounded-full ${meta.dot}"></span>
+          ${meta.label}
+          ${isCurrent ? '<svg class="ml-auto" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3"><path d="M20 6L9 17l-5-5"/></svg>' : ''}
+        </button>`;
+    }).join('');
+
+    btn.onclick = (e) => {
+      e.stopPropagation();
+      dropdown.classList.toggle('hidden');
+    };
+
+    dropdown.querySelectorAll('.status-option').forEach(opt => {
+      opt.onclick = async (e) => {
+        e.stopPropagation();
+        const newStatus = opt.dataset.status;
+        dropdown.classList.add('hidden');
+        if (newStatus === inv.status) return;
+
+        const updatePayload = { status: newStatus };
+        // Catat tanggal pembayaran otomatis begitu ditandai Lunas
+        if (newStatus === 'paid') {
+          updatePayload.tanggal_lunas = new Date().toISOString().slice(0, 10);
+        }
+
+        const { error } = await supabase.from('invoices').update(updatePayload).eq('id', inv.id).eq('access_code', APP_ID);
+        if (error) {
+          console.error(error);
+          alert('Gagal update status. Coba lagi.');
+          return;
+        }
+        // Reload data supaya badge & tanggal lunas ter-refresh
+        load();
+      };
+    });
+
+    // Klik di luar dropdown menutupnya — pasang cuma sekali, bukan tiap render
+    if (!window.__statusDropdownOutsideClickWired) {
+      document.addEventListener('click', () => {
+        const dd = document.getElementById('statusDropdown');
+        if (dd) dd.classList.add('hidden');
+      });
+      window.__statusDropdownOutsideClickWired = true;
     }
   }
 
