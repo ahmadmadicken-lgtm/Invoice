@@ -466,9 +466,10 @@
   }
 
   function buildWaMessage(inv) {
+    const penerima = inv.customer_pic || inv.customer_nama || '';
     const msg = inv.doc_type === 'quotation'
-      ? `Halo Pak/Bu ${inv.customer_nama || ''}, berikut penawaran harga servis genset ${inv.invoice_no} sebesar ${rupiah(inv.total)}, berlaku hingga ${tglFmt(inv.jatuh_tempo)}. Mohon dikonfirmasi ya. Terima kasih.`
-      : `Halo Pak/Bu ${inv.customer_nama || ''}, berikut invoice servis genset ${inv.invoice_no} sebesar ${rupiah(inv.total)}, jatuh tempo ${tglFmt(inv.jatuh_tempo)}. Terima kasih.`;
+      ? `Halo Pak/Bu ${penerima}, berikut penawaran harga servis genset ${inv.invoice_no} sebesar ${rupiah(inv.total)}, berlaku hingga ${tglFmt(inv.jatuh_tempo)}. Mohon dikonfirmasi ya. Terima kasih.`
+      : `Halo Pak/Bu ${penerima}, berikut invoice sebesar ${rupiah(inv.total)}. Mohon konfirmasi jika sudah dilakukan pembayaran. Terima kasih.`;
     return `https://wa.me/?text=${encodeURIComponent(msg)}`;
   }
 
