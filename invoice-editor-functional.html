@@ -65,9 +65,29 @@
           </p>
         </div>
       </div>
-      <div class="hidden md:block text-xs text-slate font-medium tnum" data-invoice-no>No. ...</div>
+      <div class="flex items-center gap-2">
+        <span class="text-xs text-slate font-medium tnum" data-invoice-no>No. ...</span>
+        <button id="editNumberBtn" title="Edit nomor" class="w-6 h-6 rounded-md hover:bg-slate-100 flex items-center justify-center text-slate">
+          <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M11 4H4a2 2 0 00-2 2v14a2 2 0 002 2h14a2 2 0 002-2v-7"/><path d="M18.5 2.5a2.12 2.12 0 013 3L12 15l-4 1 1-4 9.5-9.5z"/></svg>
+        </button>
+      </div>
     </div>
   </header>
+
+  <!-- Modal edit nomor urut -->
+  <div id="editNumberModal" class="hidden fixed inset-0 bg-ink/50 z-50 flex items-center justify-center px-5">
+    <div class="bg-panel rounded-2xl shadow-xl max-w-sm w-full p-6">
+      <h3 class="font-display font-700 text-base text-ink mb-1.5">Edit Nomor Urut</h3>
+      <p class="text-sm text-slate leading-relaxed mb-4">Ubah cuma angka urutnya — format prefix/bulan/tahun tetap mengikuti otomatis.</p>
+      <label class="text-xs font-semibold text-slate uppercase tracking-wide">Angka Urut</label>
+      <input id="editNumberInput" type="number" inputmode="numeric" class="mt-1.5 w-full px-4 py-2.5 rounded-xl border border-slate-200 text-sm tnum">
+      <p id="editNumberError" class="hidden text-xs text-red-600 mt-2"></p>
+      <div class="flex gap-3 mt-5">
+        <button id="editNumberCancel" class="flex-1 py-2.5 rounded-xl border border-slate-200 text-ink text-sm font-semibold hover:bg-slate-50 transition">Batal</button>
+        <button id="editNumberConfirm" class="flex-1 py-2.5 rounded-xl bg-power text-white text-sm font-semibold hover:bg-power-600 transition">Simpan</button>
+      </div>
+    </div>
+  </div>
 
   <div class="px-5 md:px-10 py-6 pb-40 md:pb-10 grid md:grid-cols-2 gap-8">
 
@@ -198,7 +218,14 @@
         <div class="px-5 pb-5 space-y-4 border-t border-slate-100 pt-4">
           <div>
             <label class="text-xs font-semibold text-slate uppercase tracking-wide">Jumlah DP</label>
-            <input id="dpJumlah" type="number" inputmode="numeric" placeholder="0" class="mt-1.5 w-full px-3 py-2 rounded-lg border border-slate-200 text-sm tnum">
+            <div class="flex gap-2 mt-1.5">
+              <input id="dpNilai" type="number" inputmode="numeric" placeholder="0" class="flex-1 px-3 py-2 rounded-lg border border-slate-200 text-sm tnum">
+              <div id="dpTypeToggle" class="flex rounded-lg border border-slate-200 overflow-hidden shrink-0">
+                <button type="button" data-type="nominal" class="dp-type-chip px-3 py-2 text-xs font-semibold bg-power-50 text-power-700">Rp</button>
+                <button type="button" data-type="persen" class="dp-type-chip px-3 py-2 text-xs font-semibold text-slate border-l border-slate-200">%</button>
+              </div>
+            </div>
+            <p id="dpPreview" class="text-xs text-slate mt-1.5 hidden"></p>
           </div>
           <div>
             <label class="text-xs font-semibold text-slate uppercase tracking-wide">Potongan Harga (Diskon)</label>
@@ -313,13 +340,23 @@
   const APP_ID = 'bengkel-genset-andi'; // ID tetap — sama di semua device, tanpa login
   const supabase = window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
 
-  // Nomor invoice: kalau ada di URL (?edit=INV-0032) berarti buka dokumen lama untuk diedit.
-  // Kalau tidak ada, ini dokumen baru — nomor akan digenerate dari nomor tertinggi yang ada + 1.
+  // Edit pakai ID internal (bukan nomor invoice) — supaya nomor bisa diedit tanpa bikin data dobel.
+  // Dokumen baru: RECORD_ID null sampai draft pertama kali berhasil tersimpan.
   const urlParams = new URLSearchParams(window.location.search);
-  let INVOICE_NO = urlParams.get('edit'); // null kalau dokumen baru
+  let RECORD_ID = urlParams.get('edit'); // null kalau dokumen baru
   const DOC_TYPE = urlParams.get('type') === 'quotation' ? 'quotation' : 'invoice'; // default invoice
-  let STORAGE_KEY = null; // diisi setelah INVOICE_NO diketahui
+  let INVOICE_NO = null;   // nomor yang ditampilkan, mis. INV-SRV-0011/VII/26
+  let SEQ_NUMBER = null;   // angka urut internal, mis. 11 — terpisah dari tampilan
+  let STORAGE_KEY = null;
   const rupiah = n => 'Rp ' + (Number(n)||0).toLocaleString('id-ID');
+
+  const ROMAN_MONTHS = ['I','II','III','IV','V','VI','VII','VIII','IX','X','XI','XII'];
+  function formatInvoiceDisplay(prefix, seq, date) {
+    const d = date || new Date();
+    const roman = ROMAN_MONTHS[d.getMonth()];
+    const yy = String(d.getFullYear()).slice(-2);
+    return `${prefix}${String(seq).padStart(4, '0')}/${roman}/${yy}`;
+  }
 
   // Sesuaikan teks UI tergantung jenis dokumen — dilakukan sekali di awal
   if (DOC_TYPE === 'quotation') {
@@ -330,61 +367,60 @@
   }
 
   async function ensureInvoiceNumber() {
-    if (INVOICE_NO) {
-      STORAGE_KEY = 'genset_invoice_draft_' + INVOICE_NO;
+    if (RECORD_ID) {
+      // Mode edit — nomor & seq akan diambil dari database di loadDraft(), bukan digenerate di sini.
       return;
     }
 
     try {
       let { data: settings } = await supabase
         .from('business_settings')
-        .select('invoice_prefix, quotation_prefix')
+        .select('invoice_prefix, quotation_prefix, next_shared_number')
         .eq('access_code', APP_ID)
         .maybeSingle();
 
       if (!settings) {
-        const defaults = { access_code: APP_ID, invoice_prefix: 'INV-SRV-', quotation_prefix: 'QUO-SRV-' };
+        const defaults = { access_code: APP_ID, invoice_prefix: 'INV-SRV-', quotation_prefix: 'QUO-SRV-', next_shared_number: 11 };
         const { data: created } = await supabase
           .from('business_settings')
           .insert(defaults)
-          .select('invoice_prefix, quotation_prefix')
+          .select('invoice_prefix, quotation_prefix, next_shared_number')
           .single();
         settings = created;
       }
       const invoicePrefix = settings.invoice_prefix || 'INV-SRV-';
       const prefix = DOC_TYPE === 'quotation' ? (settings.quotation_prefix || 'QUO-SRV-') : invoicePrefix;
 
-      // Invoice dan Quotation berbagi 1 URUTAN NOMOR YANG SAMA — cuma beda huruf depan.
-      // Jadi cari nomor tertinggi dari SEMUA dokumen (invoice maupun quotation) sekaligus,
-      // baru +1. Ini juga sengaja tidak pakai counter statis — kalau dokumen dengan
-      // nomor tertinggi dihapus, nomor itu otomatis terpakai lagi berikutnya.
-      const { data: existing, error } = await supabase
+      // Counter BERSAMA (invoice + quotation pakai urutan yang sama), TIDAK dipengaruhi
+      // oleh nomor yang diedit manual. Kalau counter kebetulan menabrak nomor yang sudah
+      // dipakai (karena ada dokumen lain diedit manual ke angka itu), otomatis dilewati.
+      let candidate = settings.next_shared_number || 11;
+
+      const { data: existingSeqs } = await supabase
         .from('invoices')
-        .select('invoice_no')
+        .select('seq_number')
         .eq('access_code', APP_ID);
+      const takenSeqs = new Set((existingSeqs || []).map(r => r.seq_number).filter(n => n != null));
 
-      if (error) throw error;
+      while (takenSeqs.has(candidate)) candidate++;
 
-      let maxNum = 0;
-      (existing || []).forEach(row => {
-        // Ambil angka di akhir nomor, apapun huruf depannya (INV- atau QUO-)
-        const match = row.invoice_no.match(/(\d+)$/);
-        if (match) {
-          const n = parseInt(match[1], 10);
-          if (!isNaN(n) && n > maxNum) maxNum = n;
-        }
-      });
-
-      INVOICE_NO = prefix + String(Math.max(maxNum + 1, 11)).padStart(4, '0');
+      SEQ_NUMBER = candidate;
+      INVOICE_NO = formatInvoiceDisplay(prefix, SEQ_NUMBER);
       STORAGE_KEY = 'genset_invoice_draft_' + INVOICE_NO;
       document.querySelector('[data-invoice-no]').textContent = 'No. ' + INVOICE_NO;
-      return;
+
+      // Simpan posisi counter berikutnya (candidate+1) supaya dokumen berikutnya lanjut dari sini
+      await supabase
+        .from('business_settings')
+        .update({ next_shared_number: candidate + 1 })
+        .eq('access_code', APP_ID);
+
     } catch (err) {
       console.warn('Gagal generate nomor invoice dari server, pakai nomor sementara:', err.message);
+      SEQ_NUMBER = null;
       INVOICE_NO = 'INV-SRV-TMP-' + Date.now().toString().slice(-6);
       STORAGE_KEY = 'genset_invoice_draft_' + INVOICE_NO;
       document.querySelector('[data-invoice-no]').textContent = 'No. ' + INVOICE_NO;
-      return;
     }
   }
 
@@ -565,7 +601,8 @@
       jasaDesc: document.getElementById('jasaDesc').value,
       jasaHarga: Number(document.getElementById('jasaHarga').value) || 0,
       spareparts,
-      dpJumlah: Number(document.getElementById('dpJumlah').value) || 0,
+      dpNilai: Number(document.getElementById('dpNilai').value) || 0,
+      dpTipe: document.querySelector('.dp-type-chip.bg-power-50')?.dataset.type || 'nominal',
       potonganNilai: Number(document.getElementById('potonganNilai').value) || 0,
       potonganTipe: document.querySelector('.diskon-type-chip.bg-power-50')?.dataset.type || 'nominal',
       catatan: document.getElementById('catatan').value,
@@ -587,7 +624,8 @@
     const subtotal = state.jasaHarga + spareTotal;
     const potonganNominal = hitungDiskonNominal(subtotal, state.potonganTipe, state.potonganNilai);
     const afterDiskon = Math.max(subtotal - potonganNominal, 0);
-    const total = Math.max(afterDiskon - state.dpJumlah, 0);
+    const dpNominal = hitungDiskonNominal(afterDiskon, state.dpTipe, state.dpNilai);
+    const total = Math.max(afterDiskon - dpNominal, 0);
 
     document.getElementById('sparepartCount').textContent = state.spareparts.length + ' item';
 
@@ -598,6 +636,15 @@
       diskonPreviewEl.classList.remove('hidden');
     } else {
       diskonPreviewEl.classList.add('hidden');
+    }
+
+    // Sama untuk DP kalau pakai persen
+    const dpPreviewEl = document.getElementById('dpPreview');
+    if (state.dpTipe === 'persen' && state.dpNilai > 0) {
+      dpPreviewEl.textContent = `= DP ${rupiah(dpNominal)}`;
+      dpPreviewEl.classList.remove('hidden');
+    } else {
+      dpPreviewEl.classList.add('hidden');
     }
 
     // preview
@@ -619,9 +666,9 @@
     document.getElementById('mobileTotal').textContent = rupiah(total);
 
     const dpRow = document.getElementById('pvDpRow');
-    if (state.dpJumlah > 0) {
+    if (dpNominal > 0) {
       dpRow.classList.remove('hidden');
-      document.getElementById('pvDp').textContent = '- ' + rupiah(state.dpJumlah);
+      document.getElementById('pvDp').textContent = '- ' + rupiah(dpNominal);
     } else {
       dpRow.classList.add('hidden');
     }
@@ -655,41 +702,52 @@
     const subtotal = state.jasaHarga + spareTotal;
     const potonganNominal = hitungDiskonNominal(subtotal, state.potonganTipe, state.potonganNilai);
     const afterDiskon = Math.max(subtotal - potonganNominal, 0);
-    const total = Math.max(afterDiskon - state.dpJumlah, 0);
+    const dpNominal = hitungDiskonNominal(afterDiskon, state.dpTipe, state.dpNilai);
+    const total = Math.max(afterDiskon - dpNominal, 0);
 
-    // 2. Coba sync ke Supabase
+    const payload = {
+      access_code: APP_ID,
+      invoice_no: INVOICE_NO,
+      seq_number: SEQ_NUMBER,
+      doc_type: DOC_TYPE,
+      tanggal: state.tanggal || null,
+      jatuh_tempo: state.jatuhTempo || null,
+      customer_nama: state.customerNama,
+      customer_hp: state.customerHp,
+      customer_pic: state.customerPic,
+      jenis_servis: state.jenisServis,
+      unit_genset: state.unitGenset,
+      deskripsi: state.deskripsi,
+      lokasi: state.lokasi,
+      jasa_desc: state.jasaDesc,
+      jasa_harga: state.jasaHarga,
+      spareparts: state.spareparts,
+      dp_tipe: state.dpTipe,
+      dp_nilai: state.dpNilai,
+      dp_jumlah: dpNominal,
+      potongan_tipe: state.potonganTipe,
+      potongan_nilai: state.potonganNilai,
+      potongan_harga: potonganNominal,
+      catatan: state.catatan,
+      invoice_kind: state.invoiceKind,
+      nilai_pekerjaan_total: state.nilaiPekerjaanTotal,
+      source_quotation: state.sourceQuotation,
+      related_dp_invoice: state.relatedDpInvoice,
+      subtotal,
+      total
+    };
+
+    // 2. Coba sync ke Supabase — key pakai ID internal, BUKAN nomor invoice,
+    //    supaya nomor bisa diedit tanpa membuat baris baru/duplikat.
     try {
-      const { error } = await supabase.from('invoices').upsert({
-        access_code: APP_ID,
-        invoice_no: INVOICE_NO,
-        doc_type: DOC_TYPE,
-        status: 'draft',
-        tanggal: state.tanggal || null,
-        jatuh_tempo: state.jatuhTempo || null,
-        customer_nama: state.customerNama,
-        customer_hp: state.customerHp,
-        customer_pic: state.customerPic,
-        jenis_servis: state.jenisServis,
-        unit_genset: state.unitGenset,
-        deskripsi: state.deskripsi,
-        lokasi: state.lokasi,
-        jasa_desc: state.jasaDesc,
-        jasa_harga: state.jasaHarga,
-        spareparts: state.spareparts,
-        dp_jumlah: state.dpJumlah,
-        potongan_tipe: state.potonganTipe,
-        potongan_nilai: state.potonganNilai,
-        potongan_harga: potonganNominal,
-        catatan: state.catatan,
-        invoice_kind: state.invoiceKind,
-        nilai_pekerjaan_total: state.nilaiPekerjaanTotal,
-        source_quotation: state.sourceQuotation,
-        related_dp_invoice: state.relatedDpInvoice,
-        subtotal,
-        total
-      }, { onConflict: 'invoice_no,access_code' });
-
-      if (error) throw error;
+      if (RECORD_ID) {
+        const { error } = await supabase.from('invoices').update(payload).eq('id', RECORD_ID).eq('access_code', APP_ID);
+        if (error) throw error;
+      } else {
+        const { data, error } = await supabase.from('invoices').insert({ ...payload, status: 'draft' }).select('id').single();
+        if (error) throw error;
+        RECORD_ID = data.id;
+      }
       updateSaveStatusUI('saved');
     } catch (err) {
       console.warn('Sync ke Supabase gagal, data aman di HP/laptop ini, akan dicoba lagi:', err.message);
@@ -700,6 +758,76 @@
   window.addEventListener('online', () => {
     const state = getState();
     save(state);
+  });
+
+  // ============================================
+  // Edit Nomor Urut
+  // ============================================
+  function extractPrefixAndParts(invoiceNo) {
+    const m = invoiceNo.match(/^(.*?)(\d{4})\/([IVXLCDM]+)\/(\d{2})$/);
+    if (!m) return null;
+    return { prefix: m[1], seq: parseInt(m[2], 10), roman: m[3], yy: m[4] };
+  }
+
+  document.getElementById('editNumberBtn').addEventListener('click', () => {
+    document.getElementById('editNumberInput').value = SEQ_NUMBER || '';
+    document.getElementById('editNumberError').classList.add('hidden');
+    document.getElementById('editNumberModal').classList.remove('hidden');
+  });
+  document.getElementById('editNumberCancel').addEventListener('click', () => {
+    document.getElementById('editNumberModal').classList.add('hidden');
+  });
+
+  document.getElementById('editNumberConfirm').addEventListener('click', async () => {
+    const newSeq = parseInt(document.getElementById('editNumberInput').value, 10);
+    const errEl = document.getElementById('editNumberError');
+    if (!newSeq || newSeq < 1) {
+      errEl.textContent = 'Isi angka yang valid.';
+      errEl.classList.remove('hidden');
+      return;
+    }
+
+    // Cek bentrok dengan dokumen lain (kecuali dirinya sendiri)
+    let query = supabase.from('invoices').select('id').eq('access_code', APP_ID).eq('seq_number', newSeq);
+    if (RECORD_ID) query = query.neq('id', RECORD_ID);
+    const { data: clash } = await query;
+
+    if (clash && clash.length > 0) {
+      errEl.textContent = `Nomor ${newSeq} sudah dipakai dokumen lain.`;
+      errEl.classList.remove('hidden');
+      return;
+    }
+
+    const parts = extractPrefixAndParts(INVOICE_NO);
+    if (!parts) return;
+
+    SEQ_NUMBER = newSeq;
+    INVOICE_NO = `${parts.prefix}${String(newSeq).padStart(4, '0')}/${parts.roman}/${parts.yy}`;
+    STORAGE_KEY = 'genset_invoice_draft_' + INVOICE_NO;
+    document.querySelector('[data-invoice-no]').textContent = 'No. ' + INVOICE_NO;
+    document.getElementById('editNumberModal').classList.add('hidden');
+
+    // Kalau dokumen ini sudah tersimpan sebelumnya, langsung update ke database.
+    // Sengaja TIDAK menyentuh counter (next_shared_number) — sesuai aturan:
+    // edit manual tidak mempengaruhi urutan otomatis dokumen berikutnya.
+    if (RECORD_ID) {
+      await save(getState());
+    }
+  });
+
+  // ============================================
+  // Toggle tipe DP: Rp / %
+  // ============================================
+  document.getElementById('dpTypeToggle').addEventListener('click', (e) => {
+    const btn = e.target.closest('.dp-type-chip');
+    if (!btn) return;
+    document.querySelectorAll('.dp-type-chip').forEach(c => {
+      c.classList.remove('bg-power-50', 'text-power-700');
+      c.classList.add('text-slate');
+    });
+    btn.classList.add('bg-power-50', 'text-power-700');
+    btn.classList.remove('text-slate');
+    onChange();
   });
 
   function showToast() {
@@ -716,16 +844,32 @@
   async function loadDraft() {
     let saved = null;
 
-    // Coba ambil dari Supabase dulu (data terbaru, bisa jadi diedit dari device lain)
+    if (!RECORD_ID) {
+      // Dokumen baru — set default tanggal & 1 baris sparepart kosong siap isi (bukan contoh terisi)
+      const today = new Date();
+      const due = new Date(today.getTime() + 7*24*60*60*1000);
+      document.getElementById('tanggal').value = today.toISOString().slice(0,10);
+      document.getElementById('jatuhTempo').value = due.toISOString().slice(0,10);
+      newSparepartRow({});
+      render(getState());
+      return;
+    }
+
+    // Mode edit — ambil dari Supabase berdasarkan ID (bukan nomor invoice)
     try {
       const { data, error } = await supabase
         .from('invoices')
         .select('*')
-        .eq('invoice_no', INVOICE_NO)
+        .eq('id', RECORD_ID)
         .eq('access_code', APP_ID)
         .maybeSingle();
       if (error) throw error;
       if (data) {
+        INVOICE_NO = data.invoice_no;
+        SEQ_NUMBER = data.seq_number;
+        STORAGE_KEY = 'genset_invoice_draft_' + INVOICE_NO;
+        document.querySelector('[data-invoice-no]').textContent = 'No. ' + INVOICE_NO;
+
         // Sinkronkan label UI dengan doc_type asli data (kalau beda dari tebakan awal URL)
         if (data.doc_type === 'quotation') {
           document.getElementById('pageTitle').textContent = 'Edit Penawaran';
@@ -738,7 +882,8 @@
           customerNama: data.customer_nama, customerHp: data.customer_hp, customerPic: data.customer_pic, jenisServis: data.jenis_servis,
           unitGenset: data.unit_genset, deskripsi: data.deskripsi,
           lokasi: data.lokasi, jasaDesc: data.jasa_desc, jasaHarga: data.jasa_harga,
-          spareparts: data.spareparts || [], dpJumlah: data.dp_jumlah,
+          spareparts: data.spareparts || [],
+          dpTipe: data.dp_tipe || 'nominal', dpNilai: data.dp_nilai || 0,
           potonganTipe: data.potongan_tipe || 'nominal', potonganNilai: data.potongan_nilai || 0,
           invoiceKind: data.invoice_kind || 'penuh', nilaiPekerjaanTotal: data.nilai_pekerjaan_total,
           relatedDpInvoice: data.related_dp_invoice,
@@ -761,10 +906,18 @@
       document.getElementById('lokasi').value = saved.lokasi || '';
       document.getElementById('jasaDesc').value = saved.jasaDesc || '';
       document.getElementById('jasaHarga').value = saved.jasaHarga || '';
-      document.getElementById('dpJumlah').value = saved.dpJumlah || '';
+      document.getElementById('dpNilai').value = saved.dpNilai || '';
       document.getElementById('potonganNilai').value = saved.potonganNilai || '';
       if (saved.potonganTipe === 'persen') {
         document.querySelectorAll('.diskon-type-chip').forEach(c => {
+          const isPersen = c.dataset.type === 'persen';
+          c.classList.toggle('bg-power-50', isPersen);
+          c.classList.toggle('text-power-700', isPersen);
+          c.classList.toggle('text-slate', !isPersen);
+        });
+      }
+      if (saved.dpTipe === 'persen') {
+        document.querySelectorAll('.dp-type-chip').forEach(c => {
           const isPersen = c.dataset.type === 'persen';
           c.classList.toggle('bg-power-50', isPersen);
           c.classList.toggle('text-power-700', isPersen);
@@ -789,16 +942,7 @@
           c.classList.toggle('active', c.dataset.val === saved.jenisServis);
         });
       }
-      (saved.spareparts && saved.spareparts.length ? saved.spareparts : [{},{},{}]).forEach(sp => newSparepartRow(sp));
-    } else {
-      // defaults for first-time / demo
-      const today = new Date();
-      const due = new Date(today.getTime() + 7*24*60*60*1000);
-      document.getElementById('tanggal').value = today.toISOString().slice(0,10);
-      document.getElementById('jatuhTempo').value = due.toISOString().slice(0,10);
-      newSparepartRow({nama:'Oli mesin 15W-40', qty:4, harga:85000});
-      newSparepartRow({nama:'Filter oli', qty:1, harga:65000});
-      newSparepartRow({nama:'Filter udara', qty:1, harga:120000});
+      (saved.spareparts && saved.spareparts.length ? saved.spareparts : [{}]).forEach(sp => newSparepartRow(sp));
     }
     render(getState());
   }

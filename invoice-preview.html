@@ -237,8 +237,8 @@
     const kontakLine = [alamatUsaha, teleponUsaha].filter(Boolean).join('<br>');
 
     document.getElementById('tbInvoiceNo').textContent = inv.invoice_no;
-    document.getElementById('editLink').href = `invoice-editor-functional.html?edit=${inv.invoice_no}`;
-    document.getElementById('editLinkMobile').href = `invoice-editor-functional.html?edit=${inv.invoice_no}`;
+    document.getElementById('editLink').href = `invoice-editor-functional.html?edit=${inv.id}`;
+    document.getElementById('editLinkMobile').href = `invoice-editor-functional.html?edit=${inv.id}`;
 
     // Gabungkan Jasa Servis + Sparepart jadi 1 daftar item flat, sesuai format referensi
     const items = [];
@@ -425,29 +425,28 @@
     btns.forEach(b => { b.disabled = true; b.style.opacity = '0.6'; });
 
     try {
-      // Tentukan nomor invoice baru menggunakan urutan bersama (invoice + quotation digabung),
-      // supaya nomor yang dihasilkan konsisten dengan invoice/quotation lain, bukan urutan sendiri.
+      // Tentukan nomor invoice baru menggunakan counter bersama (invoice + quotation),
+      // konsisten dengan sistem seq_number yang dipakai Editor.
       const { data: settings } = await supabase
         .from('business_settings')
-        .select('invoice_prefix')
+        .select('invoice_prefix, next_shared_number')
         .eq('access_code', APP_ID)
         .maybeSingle();
       const invPrefix = settings?.invoice_prefix || 'INV-SRV-';
 
-      const { data: existing } = await supabase
+      let candidate = settings?.next_shared_number || 11;
+      const { data: existingSeqs } = await supabase
         .from('invoices')
-        .select('invoice_no')
+        .select('seq_number')
         .eq('access_code', APP_ID);
+      const takenSeqs = new Set((existingSeqs || []).map(r => r.seq_number).filter(n => n != null));
+      while (takenSeqs.has(candidate)) candidate++;
 
-      let maxNum = 0;
-      (existing || []).forEach(row => {
-        const match = row.invoice_no.match(/(\d+)$/);
-        if (match) {
-          const n = parseInt(match[1], 10);
-          if (!isNaN(n) && n > maxNum) maxNum = n;
-        }
-      });
-      const newInvoiceNo = invPrefix + String(Math.max(maxNum + 1, 11)).padStart(4, '0');
+      const romanMonths = ['I','II','III','IV','V','VI','VII','VIII','IX','X','XI','XII'];
+      const now = new Date();
+      const newInvoiceNo = `${invPrefix}${String(candidate).padStart(4,'0')}/${romanMonths[now.getMonth()]}/${String(now.getFullYear()).slice(-2)}`;
+
+      await supabase.from('business_settings').update({ next_shared_number: candidate + 1 }).eq('access_code', APP_ID);
 
       // Salin semua data quotation ini jadi invoice baru
       const { data: newInvoice, error } = await supabase
@@ -455,12 +454,14 @@
         .insert({
           access_code: APP_ID,
           invoice_no: newInvoiceNo,
+          seq_number: candidate,
           doc_type: 'invoice',
           status: 'draft',
           tanggal: new Date().toISOString().slice(0, 10),
           jatuh_tempo: currentInvoice.jatuh_tempo,
           customer_nama: currentInvoice.customer_nama,
           customer_hp: currentInvoice.customer_hp,
+          customer_pic: currentInvoice.customer_pic,
           jenis_servis: currentInvoice.jenis_servis,
           unit_genset: currentInvoice.unit_genset,
           deskripsi: currentInvoice.deskripsi,
@@ -468,6 +469,8 @@
           jasa_desc: currentInvoice.jasa_desc,
           jasa_harga: currentInvoice.jasa_harga,
           spareparts: currentInvoice.spareparts,
+          dp_tipe: currentInvoice.dp_tipe,
+          dp_nilai: currentInvoice.dp_nilai,
           dp_jumlah: currentInvoice.dp_jumlah,
           potongan_tipe: currentInvoice.potongan_tipe,
           potongan_nilai: currentInvoice.potongan_nilai,
