@@ -339,7 +339,9 @@
       <div class="mt-3.5 text-[13px] text-slate leading-relaxed flex justify-between gap-6">
         <div class="flex-1">
           <p class="font-semibold text-ink mb-1">${isQuotation ? 'Syarat &amp; Ketentuan :' : 'Note :'}</p>
-          ${inv.catatan || biz.catatan_default ? `<p class="mb-1">${inv.catatan || biz.catatan_default}</p>` : ''}
+          <p>- Harga belum termasuk penggantian komponen, jika dalam proses pengerjaan ada temuan kerusakan komponen</p>
+          <p>- Aki dan Oli disediakan oleh Customer</p>
+          ${inv.catatan || biz.catatan_default ? `<p class="mt-1">${inv.catatan || biz.catatan_default}</p>` : ''}
           ${inv.dp_jumlah > 0 ? `<p>Pembayaran DP ${rupiahPlain(inv.dp_jumlah)} saat konfirmasi order, pelunasan setelah pekerjaan selesai</p>` : ''}
           ${biz.bank_nama || biz.bank_no_rekening ? `
           <p class="mt-1"><span class="font-semibold">*</span> BANK ${biz.bank_nama || ''} — Rek: ${biz.bank_no_rekening || '—'}, A/n ${biz.bank_atas_nama || '—'}</p>
