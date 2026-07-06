@@ -88,8 +88,51 @@
       <div class="bg-panel rounded-2xl border border-slate-100 shadow-sm p-5">
         <label class="text-xs font-semibold text-slate uppercase tracking-wide">Customer</label>
         <input id="customerNama" type="text" placeholder="Nama customer..." class="mt-1.5 w-full px-4 py-2.5 rounded-xl border border-slate-200 text-sm focus:outline-none focus:ring-2 focus:ring-power/40 focus:border-power">
+        <label class="text-xs font-semibold text-slate uppercase tracking-wide mt-3 block">PIC</label>
+        <input id="customerPic" type="text" placeholder="mis. Bpk. Yogi" class="mt-1.5 w-full px-4 py-2.5 rounded-xl border border-slate-200 text-sm focus:outline-none focus:ring-2 focus:ring-power/40 focus:border-power">
         <label class="text-xs font-semibold text-slate uppercase tracking-wide mt-3 block">No. HP</label>
         <input id="customerHp" type="tel" inputmode="tel" placeholder="mis. 0812-3456-7890" class="mt-1.5 w-full px-4 py-2.5 rounded-xl border border-slate-200 text-sm focus:outline-none focus:ring-2 focus:ring-power/40 focus:border-power">
+      </div>
+
+      <!-- Jenis Invoice: Penuh / DP / Pelunasan -->
+      <div id="jenisInvoiceSection" class="bg-panel rounded-2xl border border-slate-100 shadow-sm p-5 space-y-4">
+        <label class="text-xs font-semibold text-slate uppercase tracking-wide">Jenis Invoice</label>
+        <div id="jenisInvoiceChips" class="flex gap-2">
+          <button data-kind="penuh" class="kind-chip active flex-1 py-2 rounded-lg bg-power-50 border border-power-100 text-power-700 text-xs font-semibold">Penuh</button>
+          <button data-kind="dp" class="kind-chip flex-1 py-2 rounded-lg bg-slate-50 border border-slate-200 text-slate text-xs font-semibold">DP</button>
+          <button data-kind="pelunasan" class="kind-chip flex-1 py-2 rounded-lg bg-slate-50 border border-slate-200 text-slate text-xs font-semibold">Pelunasan</button>
+        </div>
+
+        <!-- Panel khusus DP -->
+        <div id="panelDP" class="hidden space-y-3 pt-1">
+          <div>
+            <label class="text-xs font-semibold text-slate uppercase tracking-wide">Sumber Quotation (opsional)</label>
+            <select id="sourceQuotationSelect" class="mt-1.5 w-full px-3 py-2.5 rounded-lg border border-slate-200 text-sm">
+              <option value="">— Isi manual, tanpa quotation —</option>
+            </select>
+            <p class="text-xs text-slate mt-1">Pilih quotation yang sudah disetujui untuk isi otomatis nilai pekerjaan.</p>
+          </div>
+          <div>
+            <label class="text-xs font-semibold text-slate uppercase tracking-wide">Nilai Total Pekerjaan</label>
+            <input id="nilaiPekerjaanTotal" type="number" inputmode="numeric" placeholder="0" class="mt-1.5 w-full px-4 py-2.5 rounded-xl border border-slate-200 text-sm tnum">
+            <p class="text-xs text-slate mt-1">Total keseluruhan proyek — boleh diedit kalau ada negosiasi akhir.</p>
+          </div>
+        </div>
+
+        <!-- Panel khusus Pelunasan -->
+        <div id="panelPelunasan" class="hidden space-y-3 pt-1">
+          <div>
+            <label class="text-xs font-semibold text-slate uppercase tracking-wide">Invoice DP Terkait</label>
+            <select id="relatedDpSelect" class="mt-1.5 w-full px-3 py-2.5 rounded-lg border border-slate-200 text-sm">
+              <option value="">Pilih invoice DP...</option>
+            </select>
+          </div>
+          <div id="pelunasanSummary" class="hidden bg-slate-50 rounded-xl p-3 space-y-1 text-xs">
+            <div class="flex justify-between"><span class="text-slate">Nilai Total Pekerjaan</span><span id="pelunasanNilaiTotal" class="font-medium text-ink tnum"></span></div>
+            <div class="flex justify-between"><span class="text-slate">DP Sudah Dibayar</span><span id="pelunasanDpDibayar" class="font-medium text-ink tnum"></span></div>
+            <div class="flex justify-between pt-1 border-t border-slate-200"><span class="font-semibold text-ink">Sisa Tagihan</span><span id="pelunasanSisa" class="font-bold text-power tnum"></span></div>
+          </div>
+        </div>
       </div>
 
       <div class="bg-panel rounded-2xl border-2 border-power-100 shadow-sm p-5 space-y-4">
@@ -283,6 +326,7 @@
     document.getElementById('pageTitle').textContent = 'Penawaran Servis Baru';
     document.getElementById('jatuhTempoLabel').textContent = 'Berlaku Hingga';
     document.title = document.title.replace('Buat Invoice', 'Buat Penawaran');
+    document.getElementById('jenisInvoiceSection').classList.add('hidden');
   }
 
   async function ensureInvoiceNumber() {
@@ -376,6 +420,115 @@
     onChange();
   });
 
+  // ============================================
+  // Jenis Invoice: Penuh / DP / Pelunasan
+  // ============================================
+  let currentKind = 'penuh';
+
+  function switchKindPanel(kind) {
+    currentKind = kind;
+    document.querySelectorAll('.kind-chip').forEach(c => {
+      const active = c.dataset.kind === kind;
+      c.classList.toggle('bg-power-50', active);
+      c.classList.toggle('border-power-100', active);
+      c.classList.toggle('text-power-700', active);
+      c.classList.toggle('bg-slate-50', !active);
+      c.classList.toggle('border-slate-200', !active);
+      c.classList.toggle('text-slate', !active);
+    });
+    document.getElementById('panelDP').classList.toggle('hidden', kind !== 'dp');
+    document.getElementById('panelPelunasan').classList.toggle('hidden', kind !== 'pelunasan');
+  }
+
+  document.getElementById('jenisInvoiceChips').addEventListener('click', (e) => {
+    const btn = e.target.closest('.kind-chip');
+    if (!btn) return;
+    switchKindPanel(btn.dataset.kind);
+    if (btn.dataset.kind === 'dp') loadApprovedQuotations();
+    if (btn.dataset.kind === 'pelunasan') loadDpInvoices();
+    onChange();
+  });
+
+  // Isi dropdown quotation yang sudah disetujui, untuk sumber Nilai Total Pekerjaan
+  async function loadApprovedQuotations() {
+    const select = document.getElementById('sourceQuotationSelect');
+    if (select.dataset.loaded) return;
+    const { data } = await supabase
+      .from('invoices')
+      .select('invoice_no, customer_nama, total')
+      .eq('access_code', APP_ID)
+      .eq('doc_type', 'quotation')
+      .eq('status', 'approved');
+
+    (data || []).forEach(q => {
+      const opt = document.createElement('option');
+      opt.value = q.invoice_no;
+      opt.textContent = `${q.invoice_no} — ${q.customer_nama || '—'} (${rupiah(q.total)})`;
+      opt.dataset.total = q.total;
+      opt.dataset.customer = q.customer_nama || '';
+      select.appendChild(opt);
+    });
+    select.dataset.loaded = '1';
+  }
+
+  document.getElementById('sourceQuotationSelect').addEventListener('change', (e) => {
+    const opt = e.target.selectedOptions[0];
+    if (opt && opt.dataset.total) {
+      document.getElementById('nilaiPekerjaanTotal').value = opt.dataset.total;
+      if (!document.getElementById('customerNama').value) {
+        document.getElementById('customerNama').value = opt.dataset.customer;
+      }
+    }
+    onChange();
+  });
+
+  // Isi dropdown invoice DP yang ada, untuk dijadikan dasar Pelunasan
+  async function loadDpInvoices() {
+    const select = document.getElementById('relatedDpSelect');
+    if (select.dataset.loaded) return;
+    const { data } = await supabase
+      .from('invoices')
+      .select('invoice_no, customer_nama, total, nilai_pekerjaan_total')
+      .eq('access_code', APP_ID)
+      .eq('doc_type', 'invoice')
+      .eq('invoice_kind', 'dp');
+
+    (data || []).forEach(inv => {
+      const opt = document.createElement('option');
+      opt.value = inv.invoice_no;
+      opt.textContent = `${inv.invoice_no} — ${inv.customer_nama || '—'}`;
+      opt.dataset.total = inv.total;
+      opt.dataset.nilaiTotal = inv.nilai_pekerjaan_total || 0;
+      opt.dataset.customer = inv.customer_nama || '';
+      select.appendChild(opt);
+    });
+    select.dataset.loaded = '1';
+  }
+
+  document.getElementById('relatedDpSelect').addEventListener('change', (e) => {
+    const opt = e.target.selectedOptions[0];
+    if (!opt || !opt.value) {
+      document.getElementById('pelunasanSummary').classList.add('hidden');
+      return;
+    }
+    const nilaiTotal = Number(opt.dataset.nilaiTotal) || 0;
+    const dpDibayar = Number(opt.dataset.total) || 0;
+    const sisa = Math.max(nilaiTotal - dpDibayar, 0);
+
+    document.getElementById('pelunasanNilaiTotal').textContent = rupiah(nilaiTotal);
+    document.getElementById('pelunasanDpDibayar').textContent = rupiah(dpDibayar);
+    document.getElementById('pelunasanSisa').textContent = rupiah(sisa);
+    document.getElementById('pelunasanSummary').classList.remove('hidden');
+
+    // Auto-isi Jasa Servis dengan sisa tagihan — tetap bisa diedit manual kalau ada negosiasi
+    document.getElementById('jasaDesc').value = `Pelunasan pekerjaan (dikurangi DP ${opt.value})`;
+    document.getElementById('jasaHarga').value = sisa;
+    if (!document.getElementById('customerNama').value) {
+      document.getElementById('customerNama').value = opt.dataset.customer;
+    }
+    onChange();
+  });
+
   // Toggle tipe diskon: Rp / %
   document.getElementById('diskonTypeToggle').addEventListener('click', (e) => {
     const btn = e.target.closest('.diskon-type-chip');
@@ -401,6 +554,7 @@
       jatuhTempo: document.getElementById('jatuhTempo').value,
       customerNama: document.getElementById('customerNama').value,
       customerHp: document.getElementById('customerHp').value,
+      customerPic: document.getElementById('customerPic').value,
       jenisServis: document.querySelector('#jenisServisChips .chip.active')?.dataset.val || '',
       unitGenset: document.getElementById('unitGenset').value,
       deskripsi: document.getElementById('deskripsi').value,
@@ -412,6 +566,10 @@
       potonganNilai: Number(document.getElementById('potonganNilai').value) || 0,
       potonganTipe: document.querySelector('.diskon-type-chip.bg-power-50')?.dataset.type || 'nominal',
       catatan: document.getElementById('catatan').value,
+      invoiceKind: currentKind,
+      nilaiPekerjaanTotal: Number(document.getElementById('nilaiPekerjaanTotal').value) || null,
+      sourceQuotation: document.getElementById('sourceQuotationSelect').value || null,
+      relatedDpInvoice: document.getElementById('relatedDpSelect').value || null,
     };
   }
 
@@ -507,6 +665,7 @@
         jatuh_tempo: state.jatuhTempo || null,
         customer_nama: state.customerNama,
         customer_hp: state.customerHp,
+        customer_pic: state.customerPic,
         jenis_servis: state.jenisServis,
         unit_genset: state.unitGenset,
         deskripsi: state.deskripsi,
@@ -519,6 +678,10 @@
         potongan_nilai: state.potonganNilai,
         potongan_harga: potonganNominal,
         catatan: state.catatan,
+        invoice_kind: state.invoiceKind,
+        nilai_pekerjaan_total: state.nilaiPekerjaanTotal,
+        source_quotation: state.sourceQuotation,
+        related_dp_invoice: state.relatedDpInvoice,
         subtotal,
         total
       }, { onConflict: 'invoice_no,access_code' });
@@ -569,11 +732,13 @@
         }
         saved = {
           tanggal: data.tanggal, jatuhTempo: data.jatuh_tempo,
-          customerNama: data.customer_nama, customerHp: data.customer_hp, jenisServis: data.jenis_servis,
+          customerNama: data.customer_nama, customerHp: data.customer_hp, customerPic: data.customer_pic, jenisServis: data.jenis_servis,
           unitGenset: data.unit_genset, deskripsi: data.deskripsi,
           lokasi: data.lokasi, jasaDesc: data.jasa_desc, jasaHarga: data.jasa_harga,
           spareparts: data.spareparts || [], dpJumlah: data.dp_jumlah,
           potonganTipe: data.potongan_tipe || 'nominal', potonganNilai: data.potongan_nilai || 0,
+          invoiceKind: data.invoice_kind || 'penuh', nilaiPekerjaanTotal: data.nilai_pekerjaan_total,
+          relatedDpInvoice: data.related_dp_invoice,
           catatan: data.catatan
         };
       }
@@ -587,6 +752,7 @@
       document.getElementById('jatuhTempo').value = saved.jatuhTempo || '';
       document.getElementById('customerNama').value = saved.customerNama || '';
       document.getElementById('customerHp').value = saved.customerHp || '';
+      document.getElementById('customerPic').value = saved.customerPic || '';
       document.getElementById('unitGenset').value = saved.unitGenset || '';
       document.getElementById('deskripsi').value = saved.deskripsi || '';
       document.getElementById('lokasi').value = saved.lokasi || '';
@@ -603,6 +769,18 @@
         });
       }
       document.getElementById('catatan').value = saved.catatan || '';
+
+      if (saved.invoiceKind && saved.invoiceKind !== 'penuh') {
+        switchKindPanel(saved.invoiceKind);
+        if (saved.invoiceKind === 'dp') {
+          document.getElementById('nilaiPekerjaanTotal').value = saved.nilaiPekerjaanTotal || '';
+        }
+        if (saved.invoiceKind === 'pelunasan') {
+          loadDpInvoices().then(() => {
+            if (saved.relatedDpInvoice) document.getElementById('relatedDpSelect').value = saved.relatedDpInvoice;
+          });
+        }
+      }
       if (saved.jenisServis) {
         document.querySelectorAll('#jenisServisChips .chip').forEach(c => {
           c.classList.toggle('active', c.dataset.val === saved.jenisServis);

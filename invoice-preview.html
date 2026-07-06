@@ -256,6 +256,7 @@
           <div class="px-3.5 py-3 border-r border-power-700">
             <p class="text-[10px] font-bold uppercase tracking-wide text-slate mb-1">Customer</p>
             <p class="font-semibold text-ink leading-snug">${inv.customer_nama || '—'}</p>
+            ${inv.customer_pic ? `<p class="text-slate leading-snug">PIC: ${inv.customer_pic}</p>` : ''}
             ${inv.lokasi ? `<p class="text-slate mt-0.5 leading-snug">${inv.lokasi}</p>` : ''}
           </div>
           <div class="px-3.5 py-3">
