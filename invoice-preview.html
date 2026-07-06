@@ -36,6 +36,24 @@
     body { background: white !important; }
     #invoiceDocument { box-shadow: none !important; border-radius: 0 !important; margin: 0 !important; }
     .max-w-3xl { max-width: 100% !important; padding: 0 !important; margin: 0 !important; }
+
+    /* Fix garis tabel yang terputus/tidak rapi saat print —
+       border-collapse memastikan garis antar sel menyatu jadi 1 garis solid,
+       bukan 2 garis tipis berdempetan yang bisa terlihat putus-putus */
+    table {
+      border-collapse: collapse !important;
+      border-spacing: 0 !important;
+    }
+    table, th, td {
+      -webkit-print-color-adjust: exact !important;
+      print-color-adjust: exact !important;
+      color-adjust: exact !important;
+    }
+    /* Pastikan border kotak formal dokumen juga tidak hilang/pudar saat print */
+    .border-power-700, .border-2, .border-b-2, .border-t-2 {
+      -webkit-print-color-adjust: exact !important;
+      print-color-adjust: exact !important;
+    }
   }
 </style>
 <link rel="manifest" href="./manifest.json">
