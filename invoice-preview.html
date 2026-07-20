@@ -318,7 +318,7 @@
             ${items.map((item, i) => `
               <tr class="border-b border-power-100">
                 <td class="px-2 py-2 text-slate border-r border-power-100">${i + 1}</td>
-                <td class="px-2 py-2 text-ink border-r border-power-100 truncate">${item.nama}</td>
+                <td class="px-2 py-2 text-ink border-r border-power-100 break-words">${item.nama}</td>
                 <td class="px-1 py-2 text-center tnum text-ink border-r border-power-100">${item.qty}</td>
                 <td class="px-1 py-2 text-center text-slate border-r border-power-100">${item.satuan || '-'}</td>
                 <td class="px-2 py-2 text-right tnum text-ink border-r border-power-100">${rupiahPlain(item.harga)}</td>
